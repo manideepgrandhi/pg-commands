@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pgc-version" content="2.2">
+<meta name="pgc-version" content="2.3">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>pg-commands · pg_dump, pg_restore & psql builder</title>
 <meta name="description" content="Interactive command builder and recipes for pg_dump, pg_restore and psql. Runs fully in your browser.">
@@ -181,6 +181,7 @@ fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
       <tr><th scope="row">app_user <code>{db}_app_user</code></th><td>writer + TEMP tables. The role the application connects with; no CREATE anywhere, so no DDL.</td><td><code>GRANT writer TO app_user</code>; <code>search_path</code> set to the managed schemas</td></tr>
       <tr><th scope="row">PUBLIC</th><td>Nothing (with the revoke option): no CONNECT/TEMP on the database, no CREATE in schema public, no EXECUTE on new functions</td><td><code>REVOKE … FROM PUBLIC</code></td></tr>
     </tbody></table></div>
+  <p class="tip"><strong>Keep current owners</strong> (existing databases, e.g. Aurora): the owner row above doesn't apply. Objects keep their owners, and each one is granted to reader/writer individually. Default privileges are added FOR ROLE each role that owns objects in the managed schemas (auto-detected or listed), so future objects from any of them are covered. Foreign tables get the same table grants. Querying them also needs a user mapping for the role (or PUBLIC). USAGE on the foreign server is optional; it only lets reader create its own user mappings or foreign tables.</p>
   <p class="tip"><strong>Why membership:</strong> each privilege is granted once, so <code>writer</code> can never fall behind <code>reader</code>. The roles must be INHERIT, which the script enforces. A NOINHERIT role would only get the privileges after <code>SET ROLE</code>, which apps don't do. People get access by being granted one of the three roles (<code>GRANT {db}_reader TO alice</code>). <strong>RDS/Aurora:</strong> there's no superuser, so run it as the master user (rds_superuser, CREATEROLE, CREATEDB). The script grants the owner role to that user, because CREATE DATABASE … OWNER, SET ROLE and ALTER DEFAULT PRIVILEGES FOR ROLE all require it.</p>
   <div class="grid">
     <div class="field"><label for="rm-db">Database name</label><input type="text" id="rm-db" value="mydb" autocomplete="off" spellcheck="false"><div class="tip">Default for -v database_name.</div></div>
@@ -192,10 +193,13 @@ fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
     <div class="field"><label for="rm-app">App user role</label><input type="text" id="rm-app" value="{db}_app_user" autocomplete="off" spellcheck="false"><div class="tip">What the application logs in as.</div></div>
     <div class="check"><input type="checkbox" id="rm-login" aria-describedby="rm-login-tip"><div><label for="rm-login" class="mono" style="font-size:13px">Allow login for reader / writer / app_user</label><div class="tip" id="rm-login-tip">Creates them with LOGIN and no password; set one with \password. The owner never logs in.</div></div></div>
     <div class="check"><input type="checkbox" id="rm-revoke" checked aria-describedby="rm-revoke-tip"><div><label for="rm-revoke" class="mono" style="font-size:13px">Revoke PUBLIC privileges</label><div class="tip" id="rm-revoke-tip">REVOKE ALL ON DATABASE, CREATE ON SCHEMA public and EXECUTE on new functions FROM PUBLIC.</div></div></div>
+    <div class="check"><input type="checkbox" id="rm-keep" aria-describedby="rm-keep-tip"><div><label for="rm-keep" class="mono" style="font-size:13px">Keep current owners (existing DB)</label><div class="tip" id="rm-keep-tip">No owner role, no ALTER … OWNER, no CREATE DATABASE. Grants each object as it is; default privileges FOR ROLE each object creator.</div></div></div>
+    <div class="field"><label for="rm-owners">Object-creating roles (keep mode)</label><input type="text" id="rm-owners" placeholder="empty = auto-detect owners" autocomplete="off" spellcheck="false" disabled aria-describedby="rm-owners-tip"><div class="tip" id="rm-owners-tip">Comma-separated. Empty: every role that owns objects in the managed schemas.</div></div>
+    <div class="check"><input type="checkbox" id="rm-fdw" disabled aria-describedby="rm-fdw-tip"><div><label for="rm-fdw" class="mono" style="font-size:13px">Grant USAGE on all foreign servers to reader</label><div class="tip" id="rm-fdw-tip">Querying a foreign table needs SELECT on it plus a user mapping for the querying role (or PUBLIC). Server USAGE is only needed to create foreign tables or your own user mappings.</div></div></div>
     <div class="check"><input type="checkbox" id="rm-trunc" aria-describedby="rm-trunc-tip"><div><label for="rm-trunc" class="mono" style="font-size:13px">Writer may TRUNCATE</label><div class="tip" id="rm-trunc-tip">Off by default: TRUNCATE skips DELETE triggers and RLS.</div></div></div>
   </div>
   <div class="term" style="margin-top:12px"><div class="termbar"><span class="mono tip">how to run</span><span class="sp"></span><button class="small" id="rm-runcopy">Copy</button></div><pre class="cmd" id="rm-run"></pre></div>
-  <div class="term" style="margin-top:10px"><div class="termbar"><span class="mono tip">role_model.sql</span><span class="sp"></span><button class="small" id="rm-dl">Download</button><button class="small primary" id="rm-copy">Copy script</button></div><pre class="cmd sqlout" id="rm-out" aria-live="off"></pre></div>
+  <div class="term" style="margin-top:10px"><div class="termbar"><span class="mono tip" id="rm-fname">role_model.sql</span><span class="sp"></span><button class="small" id="rm-dl">Download</button><button class="small primary" id="rm-copy">Copy script</button></div><pre class="cmd sqlout" id="rm-out" aria-live="off"></pre></div>
   <div class="warns" id="rm-warn" aria-live="polite"></div>
   <div class="cards" id="rm-cards"></div>
 </div>
@@ -233,7 +237,7 @@ fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
 </main>
 <footer><div class="wrap">
   <strong>Also see:</strong> <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">pg-dump-wrapper</a> — Manideep's <code>pg_dump</code>/<code>psql</code> wrapper scripts for scheduled, logged backups and runs.<br>
-  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.2. Always review a command before running it, especially against production.
+  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.3. Always review a command before running it, especially against production.
 </div></footer>
 <div class="toast" id="toast" role="status"></div>
 
@@ -1025,17 +1029,367 @@ $("#dm-csv").addEventListener("click",()=>download("customers.csv",DEMO_CSV,"tex
 renderSec();updRole();renderDemo();
 /* ---------- database role model (owner / reader / writer / app_user) ---------- */
 function rmVals(){const g=k=>$("#rm-"+k);return{db:g("db").value.trim(),schemas:list(g("schemas").value).join(","),owner:g("owner").value.trim(),reader:g("reader").value.trim(),writer:g("writer").value.trim(),app:g("app").value.trim(),
- extend:g("mode").value==="extend",login:g("login").checked,revoke:g("revoke").checked,trunc:g("trunc").checked};}
+ extend:g("mode").value==="extend",login:g("login").checked,revoke:g("revoke").checked,trunc:g("trunc").checked,
+ keep:g("keep").checked,owners:list(g("owners").value).join(","),fdw:g("fdw").checked};}
 const psqlLit=s=>"'"+String(s).replace(/'/g,"''")+"'";
 function rmSetName(v,val){if(val.includes("{db}")){const[pre,...rest]=val.split("{db}");const post=rest.join("{db}");return`\\set ${v} ${pre?psqlLit(pre)+" ":""}:database_name${post?" "+psqlLit(post):""}`;}return`\\set ${v} ${psqlLit(val)}`;}
 function rmDefault(v,line){return`\\if :{?${v}}\n\\else\n  ${line}\n\\endif`;}
-function rmWarn(o){const w=[];const nm=o.db?[o.owner,o.reader,o.writer,o.app].map(x=>x.replace(/\{db\}/g,o.db)):[];
+function rmWarn(o){const w=[];const nm=o.db?(o.keep?[o.reader,o.writer,o.app]:[o.owner,o.reader,o.writer,o.app]).map(x=>x.replace(/\{db\}/g,o.db)):[];
  if(!o.db)w.push("Enter a database name.");if(!o.schemas)w.push("Enter at least one schema (e.g. public).");
  if(["postgres","template0","template1","rdsadmin"].includes(o.db))w.push(o.db+" is a system database; pick your application database.");
- if(nm.some(x=>!x))w.push("All four role names are required.");if(new Set(nm).size!==nm.length)w.push("Role names must all be different.");
+ if(nm.some(x=>!x))w.push("All role names are required.");if(new Set(nm).size!==nm.length)w.push("Role names must all be different.");
  nm.concat(o.db?[o.db]:[]).forEach(x=>{if(/^pg_/i.test(x))w.push("Names starting with pg_ are reserved: "+x);if(x.length>63)w.push("Longer than 63 characters: "+x);});
  return w;}
+function rmScriptKeep(o,w){
+ const sql=String.raw`-- =====================================================================
+-- role_model_keep_owners.sql: reader / writer / app_user on an EXISTING database,
+-- keeping every current owner (no owner role, no ALTER … OWNER, no CREATE DATABASE).
+-- Generated by pg-commands (https://manideepgrandhi.github.io/pg-commands/), model v1-keep
+--
+-- Run as a superuser or, on RDS/Aurora, the master user (CREATEROLE):
+--   psql -h <host> -U <admin> -d postgres -v database_name=${o.db} -f role_model_keep_owners.sql
+-- Optional -v overrides: schemas=public,app  owner_roles=app_a,app_b (empty = auto-detect)
+--   revoke_public=true|false  writer_truncate=true|false  roles_login=true|false
+--   fdw_usage=true|false  reader_role=…  writer_role=…  app_role=…
+-- Safe to re-run. Anything the admin isn't allowed to grant is skipped with a NOTICE.
+-- =====================================================================
+\set ON_ERROR_STOP on
+\set role_model_version 1
+SET client_encoding TO 'UTF8';
+
+CREATE OR REPLACE FUNCTION pg_temp.err(msg text) RETURNS boolean
+LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION '%', msg; END $$;
+
+-- 1. Parameters (anything passed with -v wins)
+${rmDefault("database_name",`\\set database_name ${psqlLit(o.db)}`)}
+${rmDefault("schemas",`\\set schemas ${psqlLit(o.schemas)}`)}
+${rmDefault("owner_roles",`\\set owner_roles ${psqlLit(o.owners)}`)}
+${rmDefault("reader_role",rmSetName("reader_role",o.reader))}
+${rmDefault("writer_role",rmSetName("writer_role",o.writer))}
+${rmDefault("app_role",rmSetName("app_role",o.app))}
+${rmDefault("revoke_public",`\\set revoke_public ${o.revoke}`)}
+${rmDefault("writer_truncate",`\\set writer_truncate ${o.trunc}`)}
+${rmDefault("roles_login",`\\set roles_login ${o.login}`)}
+${rmDefault("fdw_usage",`\\set fdw_usage ${o.fdw}`)}
+
+-- 2. Validation: the database must already exist (this mode never creates one)
+SELECT length(:'database_name') BETWEEN 1 AND 63
+       AND :'database_name' NOT IN ('postgres', 'template0', 'template1', 'rdsadmin') AS name_ok,
+       (SELECT count(DISTINCT r) = 3 AND bool_and(r <> '' AND length(r) <= 63 AND r !~ '^pg_')
+          FROM unnest(ARRAY[:'reader_role', :'writer_role', :'app_role']) AS r) AS roles_ok,
+       (SELECT count(*) > 0 FROM unnest(string_to_array(:'schemas', ',')) AS s WHERE btrim(s) <> '') AS schemas_ok,
+       :'revoke_public'::boolean AS revoke_public,
+       :'writer_truncate'::boolean AS writer_truncate,
+       :'roles_login'::boolean AS roles_login,
+       :'fdw_usage'::boolean AS fdw_usage,
+       EXISTS (SELECT 1 FROM pg_catalog.pg_database WHERE datname = :'database_name') AS db_exists
+\gset
+\if :name_ok
+\else
+  SELECT pg_temp.err('database_name must be 1-63 characters and not a system database. Example: -v database_name=mydb');
+\endif
+\if :roles_ok
+\else
+  SELECT pg_temp.err('reader/writer/app role names must be 3 different names, 1-63 characters, not starting with pg_');
+\endif
+\if :schemas_ok
+\else
+  SELECT pg_temp.err('schemas must list at least one schema, e.g. -v schemas=public,app');
+\endif
+\if :db_exists
+  \echo 'Adding reader/writer/app_user to existing database' :"database_name" 'on' :HOST '(owners are kept)'
+\else
+  SELECT pg_temp.err('Database does not exist - keep-owners mode only works on existing databases');
+\endif
+
+SELECT set_config('role_model.reader', :'reader_role', false),
+       set_config('role_model.writer', :'writer_role', false),
+       set_config('role_model.app',    :'app_role',    false),
+       set_config('role_model.login',  :'roles_login', false) \gset rm_
+
+-- 3. Cluster level: the three roles and the chain reader -> writer -> app_user
+DO $do$
+DECLARE
+  _reader text    := current_setting('role_model.reader');
+  _writer text    := current_setting('role_model.writer');
+  _app    text    := current_setting('role_model.app');
+  _login  boolean := current_setting('role_model.login')::boolean;
+  _r      text;
+  _pair   text[];
+BEGIN
+  FOREACH _r IN ARRAY ARRAY[_reader, _writer, _app] LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = _r) THEN
+      RAISE NOTICE 'Creating role: %', _r;
+      EXECUTE format('CREATE ROLE %I %s INHERIT', _r, CASE WHEN _login THEN 'LOGIN' ELSE 'NOLOGIN' END);
+    ELSE
+      RAISE NOTICE 'Role already exists: %', _r;
+      EXECUTE format('ALTER ROLE %I INHERIT', _r);
+      IF _login THEN EXECUTE format('ALTER ROLE %I LOGIN', _r); END IF;
+    END IF;
+  END LOOP;
+  FOREACH _pair SLICE 1 IN ARRAY ARRAY[[_reader, _writer], [_writer, _app]] LOOP
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m
+               WHERE m.roleid = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = _pair[1])
+                 AND m.member = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = _pair[2])) THEN
+      RAISE NOTICE 'Membership already exists: % -> %', _pair[1], _pair[2];
+    ELSE
+      RAISE NOTICE 'Granting % to %', _pair[1], _pair[2];
+      EXECUTE format('GRANT %I TO %I', _pair[1], _pair[2]);
+    END IF;
+  END LOOP;
+END
+$do$;
+
+\connect :"database_name"
+\set ON_ERROR_STOP on
+SELECT set_config('role_model.reader',   :'reader_role',     false),
+       set_config('role_model.writer',   :'writer_role',     false),
+       set_config('role_model.app',      :'app_role',        false),
+       set_config('role_model.schemas',  :'schemas',         false),
+       set_config('role_model.owners',   :'owner_roles',     false),
+       set_config('role_model.revoke',   :'revoke_public',   false),
+       set_config('role_model.truncate', :'writer_truncate', false),
+       set_config('role_model.fdw',      :'fdw_usage',       false) \gset rm_
+
+-- 4. Database level: grants on existing objects + default privileges for each object creator
+DO $do$
+DECLARE
+  _reader text    := current_setting('role_model.reader');
+  _writer text    := current_setting('role_model.writer');
+  _app    text    := current_setting('role_model.app');
+  _revoke boolean := current_setting('role_model.revoke')::boolean;
+  _fdw    boolean := current_setting('role_model.fdw')::boolean;
+  _dml    text    := CASE WHEN current_setting('role_model.truncate')::boolean
+                          THEN 'INSERT, UPDATE, DELETE, TRUNCATE' ELSE 'INSERT, UPDATE, DELETE' END;
+  _db     text    := current_database();
+  _dbowner text   := (SELECT pg_get_userbyid(datdba) FROM pg_catalog.pg_database WHERE datname = current_database());
+  _schemas text[] := ARRAY(SELECT btrim(s) FROM unnest(string_to_array(current_setting('role_model.schemas'), ',')) AS s
+                           WHERE btrim(s) <> '' AND EXISTS (SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname = btrim(s)));
+  _owners text[];
+  _s   text;
+  _o   text;
+  _obj record;
+  _skipped int := 0;
+BEGIN
+  -- schemas that don't exist are reported, never created (that would need an owner)
+  FOR _s IN SELECT btrim(x) FROM unnest(string_to_array(current_setting('role_model.schemas'), ',')) AS x
+            WHERE btrim(x) <> '' AND btrim(x) <> ALL (_schemas) LOOP
+    RAISE NOTICE 'Schema % does not exist - skipped', _s;
+  END LOOP;
+
+  -- object creators: listed, or every role that owns something in the managed schemas
+  IF btrim(current_setting('role_model.owners')) <> '' THEN
+    _owners := ARRAY(SELECT DISTINCT btrim(x) FROM unnest(string_to_array(current_setting('role_model.owners'), ',')) AS x
+                     WHERE btrim(x) <> '');
+  ELSE
+    _owners := ARRAY(
+      SELECT DISTINCT pg_get_userbyid(o.owner) FROM (
+        SELECT n.nspowner AS owner FROM pg_catalog.pg_namespace n WHERE n.nspname = ANY (_schemas)
+        UNION
+        SELECT c.relowner FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = ANY (_schemas) AND c.relkind IN ('r', 'p', 'v', 'm', 'S', 'f')
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.classid = 'pg_class'::regclass
+                          AND d.objid = c.oid AND d.deptype = 'e')
+        UNION
+        SELECT p.proowner FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = ANY (_schemas)
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.classid = 'pg_proc'::regclass
+                          AND d.objid = p.oid AND d.deptype IN ('e', 'i'))
+      ) AS o
+      WHERE pg_get_userbyid(o.owner) !~ '^pg_' AND pg_get_userbyid(o.owner) <> 'rdsadmin');
+    RAISE NOTICE 'Auto-detected object owners: %', array_to_string(_owners, ', ');
+  END IF;
+  FOREACH _o IN ARRAY _owners LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = _o) THEN
+      RAISE EXCEPTION 'Owner role % does not exist', _o;
+    END IF;
+  END LOOP;
+
+  -- database level (only the database owner, or a member of it, can grant these)
+  BEGIN
+    IF _revoke THEN
+      EXECUTE format('REVOKE ALL ON DATABASE %I FROM PUBLIC', _db);
+    END IF;
+    EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', _db, _reader);
+    EXECUTE format('GRANT TEMPORARY ON DATABASE %I TO %I', _db, _app);
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'Skipped database grants - %', SQLERRM;
+  END;
+  IF NOT has_database_privilege(_reader, _db, 'CONNECT') THEN
+    RAISE NOTICE 'WARNING: % has no CONNECT on % (owned by %). Fix: GRANT % TO %, then re-run',
+                 _reader, _db, _dbowner, quote_ident(_dbowner), quote_ident(current_user);
+  END IF;
+  IF _revoke AND has_database_privilege('public', _db, 'CONNECT') THEN
+    RAISE NOTICE 'WARNING: PUBLIC can still connect to % (owned by %). Fix: GRANT % TO %, then re-run',
+                 _db, _dbowner, quote_ident(_dbowner), quote_ident(current_user);
+  END IF;
+  IF _revoke AND 'public' = ANY (_schemas) THEN
+    BEGIN
+      REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+    EXCEPTION WHEN insufficient_privilege THEN
+      RAISE NOTICE 'Skipped REVOKE CREATE ON SCHEMA public - %', SQLERRM;
+    END;
+  END IF;
+
+  FOREACH _s IN ARRAY _schemas LOOP
+    BEGIN
+      EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', _s, _reader);
+    EXCEPTION WHEN insufficient_privilege THEN
+      RAISE NOTICE 'Skipped: USAGE on schema % (owned by %; GRANT % TO % to fix)', _s,
+        (SELECT pg_get_userbyid(nspowner) FROM pg_catalog.pg_namespace WHERE nspname = _s),
+        (SELECT quote_ident(pg_get_userbyid(nspowner)) FROM pg_catalog.pg_namespace WHERE nspname = _s),
+        quote_ident(current_user);
+      _skipped := _skipped + 1;
+    END;
+    -- tables, partitions, views, matviews, foreign tables, sequences: one by one
+    FOR _obj IN
+      SELECT c.relkind = 'S' AS is_seq, format('%I.%I', n.nspname, c.relname) AS name,
+             pg_get_userbyid(c.relowner) AS obj_owner
+      FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = _s AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
+        AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.classid = 'pg_class'::regclass
+                        AND d.objid = c.oid AND d.deptype = 'e')
+      ORDER BY 2
+    LOOP
+      BEGIN
+        IF _obj.is_seq THEN
+          EXECUTE format('GRANT SELECT ON SEQUENCE %s TO %I', _obj.name, _reader);
+          EXECUTE format('GRANT USAGE, SELECT, UPDATE ON SEQUENCE %s TO %I', _obj.name, _writer);
+        ELSE
+          EXECUTE format('GRANT SELECT ON TABLE %s TO %I', _obj.name, _reader);
+          EXECUTE format('GRANT %s ON TABLE %s TO %I', _dml, _obj.name, _writer);
+        END IF;
+      EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Skipped: % (owned by %; GRANT % TO % to fix)', _obj.name, _obj.obj_owner,
+                     quote_ident(_obj.obj_owner), quote_ident(current_user);
+        _skipped := _skipped + 1;
+      END;
+    END LOOP;
+    FOR _obj IN
+      SELECT p.oid::regprocedure::text AS name, pg_get_userbyid(p.proowner) AS obj_owner
+      FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = _s
+        AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.classid = 'pg_proc'::regclass
+                        AND d.objid = p.oid AND d.deptype IN ('e', 'i'))
+    LOOP
+      BEGIN
+        EXECUTE format('GRANT EXECUTE ON ROUTINE %s TO %I', _obj.name, _writer);
+      EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Skipped: routine % (owned by %; GRANT % TO % to fix)', _obj.name, _obj.obj_owner,
+                     quote_ident(_obj.obj_owner), quote_ident(current_user);
+        _skipped := _skipped + 1;
+      END;
+    END LOOP;
+
+    -- future objects: one set of default privileges per object-creating role
+    FOREACH _o IN ARRAY _owners LOOP
+      BEGIN
+        EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT SELECT ON TABLES TO %I', _o, _s, _reader);
+        EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT SELECT ON SEQUENCES TO %I', _o, _s, _reader);
+        EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT %s ON TABLES TO %I', _o, _s, _dml, _writer);
+        EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO %I', _o, _s, _writer);
+        EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT EXECUTE ON FUNCTIONS TO %I', _o, _s, _writer);
+        RAISE NOTICE 'Default privileges set for objects created by % in schema %', _o, _s;
+      EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Skipped default privileges FOR ROLE % in % - %. Fix: GRANT % TO %', _o, _s, SQLERRM,
+                     quote_ident(_o), quote_ident(current_user);
+        _skipped := _skipped + 1;
+      END;
+    END LOOP;
+  END LOOP;
+
+  IF _revoke THEN
+    FOREACH _o IN ARRAY _owners LOOP
+      BEGIN
+        EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC', _o);
+      EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Skipped REVOKE EXECUTE default FOR ROLE % - %', _o, SQLERRM;
+      END;
+    END LOOP;
+  END IF;
+
+  -- querying a foreign table = SELECT on it + a user mapping for the role (or PUBLIC);
+  -- server USAGE (optional) only lets the role create its own mappings / foreign tables
+  IF _fdw THEN
+    FOR _obj IN SELECT srvname FROM pg_catalog.pg_foreign_server ORDER BY 1 LOOP
+      BEGIN
+        EXECUTE format('GRANT USAGE ON FOREIGN SERVER %I TO %I', _obj.srvname, _reader);
+        RAISE NOTICE 'Granted USAGE on foreign server % to %', _obj.srvname, _reader;
+      EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Skipped: USAGE on foreign server % - %', _obj.srvname, SQLERRM;
+        _skipped := _skipped + 1;
+      END;
+    END LOOP;
+  END IF;
+  FOR _obj IN
+    SELECT s.srvname FROM pg_catalog.pg_foreign_server s
+    WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_user_mappings um
+                      WHERE um.srvid = s.oid AND um.usename IN ('public', _reader, _writer, _app))
+  LOOP
+    RAISE NOTICE 'Foreign server % has no user mapping for PUBLIC or the new roles: CREATE USER MAPPING FOR <login role> SERVER % OPTIONS (user ''…'', password ''…'')',
+                 _obj.srvname, quote_ident(_obj.srvname);
+  END LOOP;
+
+  FOREACH _s IN ARRAY ARRAY[_reader, _writer, _app] LOOP
+    EXECUTE format('ALTER ROLE %I IN DATABASE %I SET search_path = %s', _s, _db,
+                   (SELECT string_agg(quote_ident(x), ', ') FROM unnest(_schemas) AS x));
+  END LOOP;
+  RAISE NOTICE 'Keep-owners role model applied to %: % item(s) skipped', _db, _skipped;
+END
+$do$;
+
+-- 5. Verification
+\echo '== Roles and memberships'
+SELECT r.rolname AS role, r.rolcanlogin AS can_login, r.rolinherit AS inherit,
+       ARRAY(SELECT pg_get_userbyid(m.roleid) FROM pg_catalog.pg_auth_members m
+             WHERE m.member = r.oid ORDER BY 1) AS member_of
+FROM pg_catalog.pg_roles r
+WHERE r.rolname IN (:'reader_role', :'writer_role', :'app_role')
+ORDER BY 1;
+
+\echo '== Owners in the managed schemas (unchanged by this script)'
+SELECT n.nspname AS schema, pg_get_userbyid(c.relowner) AS owner, count(*) AS objects
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = ANY (string_to_array(replace(:'schemas', ' ', ''), ','))
+  AND c.relkind IN ('r', 'p', 'v', 'm', 'S', 'f')
+GROUP BY 1, 2 ORDER BY 1, 2;
+
+\echo '== Effective privileges per object (first 50)'
+SELECT c.oid::regclass AS object, c.relkind AS kind, pg_get_userbyid(c.relowner) AS owner,
+       has_table_privilege(:'reader_role', c.oid, 'SELECT') AS reader_sel,
+       has_table_privilege(:'reader_role', c.oid, 'INSERT') AS reader_ins,
+       has_table_privilege(:'writer_role', c.oid, 'INSERT, UPDATE, DELETE') AS writer_dml,
+       has_table_privilege(:'app_role', c.oid, 'INSERT, UPDATE, DELETE') AS app_dml
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = ANY (string_to_array(replace(:'schemas', ' ', ''), ','))
+  AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+ORDER BY 1 LIMIT 50;
+
+\echo '== Default privileges granted to the three roles'
+SELECT pg_get_userbyid(d.defaclrole) AS for_role, COALESCE(n.nspname, '(all schemas)') AS schema,
+       CASE d.defaclobjtype WHEN 'r' THEN 'tables' WHEN 'S' THEN 'sequences' WHEN 'f' THEN 'functions'
+                            WHEN 'T' THEN 'types' WHEN 'n' THEN 'schemas' END AS object_type,
+       pg_get_userbyid(a.grantee) AS grantee,
+       string_agg(a.privilege_type, ', ' ORDER BY a.privilege_type) AS privileges
+FROM pg_catalog.pg_default_acl d
+LEFT JOIN pg_catalog.pg_namespace n ON n.oid = d.defaclnamespace
+CROSS JOIN LATERAL aclexplode(d.defaclacl) AS a
+WHERE a.grantee IN (SELECT oid FROM pg_catalog.pg_roles WHERE rolname IN (:'reader_role', :'writer_role', :'app_role'))
+GROUP BY 1, 2, 3, 4
+ORDER BY 1, 2, 3, 4;
+${o.login?`
+-- set passwords interactively (never put them in this file):
+--   \\password ${o.reader.replace(/\{db\}/g,o.db)}
+--   \\password ${o.writer.replace(/\{db\}/g,o.db)}
+--   \\password ${o.app.replace(/\{db\}/g,o.db)}`:""}
+\echo 'Done.'
+`;
+ w.push("Keep current owners: no owner role, no ALTER … OWNER, no CREATE DATABASE. Grants and default privileges are added per existing object creator.");
+ w.push("Default privileges are only set for the creators found (or listed) now. Re-run, or list the role in 'Object-creating roles', when a new role starts creating objects.");
+ return{sql,w,info:true};}
+
 function rmScript(){const o=rmVals();const w=rmWarn(o);if(w.length)return{sql:"",w};
+ if(o.keep)return rmScriptKeep(o,w);
  const sql=String.raw`-- =====================================================================
 -- role_model.sql: database role model  owner / reader / writer / app_user
 -- Generated by pg-commands (https://manideepgrandhi.github.io/pg-commands/), model v1
@@ -1423,12 +1777,12 @@ ${o.login?`
 `;
  if(o.extend)w.push("Extend mode changes the owner of existing tables, views, sequences and functions in these schemas to the owner role. Review it on a non-prod copy first.");
  return{sql,w,info:true};}
-function rmRun(){const o=rmVals();const a=["psql"];if(conn.host)a.push("-h",conn.host);if(conn.port&&conn.port!=="5432")a.push("-p",conn.port);a.push("-U",conn.user||"<admin>","-d","postgres","-v","database_name="+(o.db||"mydb"));if(o.extend)a.push("-v","extend_model=true");a.push("-f","role_model.sql");return a.map((x,i)=>i&&x.startsWith("<")?x:shq(x)).join(" ");}
-function updRM(){const r=rmScript();$("#rm-out").textContent=r.sql||"-- fix the form above";$("#rm-run").textContent=rmRun();
+function rmRun(){const o=rmVals();const a=["psql"];if(conn.host)a.push("-h",conn.host);if(conn.port&&conn.port!=="5432")a.push("-p",conn.port);a.push("-U",conn.user||"<admin>","-d","postgres","-v","database_name="+(o.db||"mydb"));if(o.extend&&!o.keep)a.push("-v","extend_model=true");a.push("-f",o.keep?"role_model_keep_owners.sql":"role_model.sql");return a.map((x,i)=>i&&x.startsWith("<")?x:shq(x)).join(" ");}
+function updRM(){const kp=$("#rm-keep").checked;["mode","owner"].forEach(k=>$("#rm-"+k).disabled=kp);$("#rm-owners").disabled=!kp;$("#rm-fdw").disabled=!kp;if(kp)$("#rm-mode").value="extend";$("#rm-fname").textContent=kp?"role_model_keep_owners.sql":"role_model.sql";const r=rmScript();$("#rm-out").textContent=r.sql||"-- fix the form above";$("#rm-run").textContent=rmRun();
  $("#rm-warn").innerHTML=r.w.map(m=>`<div class="warn${r.sql?" info":""}">${r.sql?"ℹ":"⚠"} ${esc(m)}</div>`).join("");}
 $("#rolemodel").addEventListener("input",updRM);$("#rolemodel").addEventListener("change",updRM);
 $("#rm-copy").addEventListener("click",()=>{const r=rmScript();if(r.sql)copy(r.sql);else toast("Fix the form first");});
-$("#rm-dl").addEventListener("click",()=>{const r=rmScript();if(r.sql)download("role_model.sql",r.sql,"application/sql");else toast("Fix the form first");});
+$("#rm-dl").addEventListener("click",()=>{const r=rmScript();if(r.sql)download(rmVals().keep?"role_model_keep_owners.sql":"role_model.sql",r.sql,"application/sql");else toast("Fix the form first");});
 $("#rm-runcopy").addEventListener("click",()=>copy($("#rm-run").textContent));
 updRM();
 /* quick standalone cards */

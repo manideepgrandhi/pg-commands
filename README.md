@@ -45,3 +45,16 @@ Every builder combination, recipe, security item that can run locally, role buil
 ![Admin tools](screenshots/desktop-admin-defpriv.png)
 
 <img src="screenshots/mobile.png" alt="Mobile view" width="300">
+
+## v2.3: Keep current owners (role model)
+
+Turn on **Keep current owners** in the Database role model panel to add reader / writer / app_user to an *existing* database (e.g. Aurora PostgreSQL) without changing who owns anything:
+
+- no owner role, no `ALTER … OWNER`, no `CREATE DATABASE`; missing schemas are reported, not created
+- object-creating roles: listed by you, or auto-detected as the distinct owners of schemas, tables, views, matviews, foreign tables, sequences and routines in the managed schemas
+- `ALTER DEFAULT PRIVILEGES FOR ROLE <owner>` for every creator, so future objects from any of them are covered
+- grants are applied one object at a time; anything the admin can't grant is skipped with a NOTICE suggesting `GRANT <owner> TO <you>`
+- foreign tables get table grants (querying also needs a user mapping); optional USAGE on all foreign servers for reader
+- safe to re-run; the verification step shows owners (unchanged), effective privileges and default ACLs per owner
+
+![Keep current owners](screenshots/desktop-role-model-keep.png)
