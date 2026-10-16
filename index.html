@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>pg-commands · pg_dump, pg_restore & psql builder</title>
+<meta name="description" content="Interactive command builder and recipes for pg_dump, pg_restore and psql. Runs fully in your browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230d1117'/%3E%3Ctext x='5' y='22' font-family='monospace' font-size='16' fill='%233fb950'%3E$_%3C/text%3E%3C/svg%3E">
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--panel2:#1c2330;--line:#30363d;--fg:#e6edf3;--muted:#9da7b3;--green:#3fb950;--blue:#58a6ff;--amber:#d29922;--red:#f85149;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--blue)}
+code,pre,.mono{font-family:var(--mono)}
+.wrap{max-width:1200px;margin:0 auto;padding:0 16px}
+header{border-bottom:1px solid var(--line);background:#010409}
+header .wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 16px}
+.logo{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--green);text-decoration:none}
+.logo span{color:var(--fg)}
+header nav{display:flex;gap:14px;flex-wrap:wrap;margin-left:auto;font-size:14px}
+header nav a{text-decoration:none}
+.tagline{color:var(--muted);font-size:13px}
+h2{font-family:var(--mono);font-size:18px;margin:28px 0 12px;color:var(--green)}
+h2::before{content:"$ ";color:var(--muted)}
+h3{font-size:14px;margin:0 0 10px;color:var(--blue);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.field{display:flex;flex-direction:column;gap:3px;min-width:0}
+.field label{font-size:13px;font-weight:600}
+.field label code{color:var(--green);font-weight:400}
+.tip{font-size:12px;color:var(--muted)}
+input[type=text],input[type=number],select,textarea{width:100%;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font:14px var(--mono)}
+textarea{resize:vertical;min-height:38px}
+input:disabled,select:disabled,textarea:disabled{opacity:.45;cursor:not-allowed}
+.check{display:flex;gap:8px;align-items:flex-start}
+.check input{margin-top:4px;width:16px;height:16px;accent-color:var(--green)}
+.check.disabled{opacity:.45}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+button,.btn{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px 12px;font:600 13px system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+button:hover,.btn:hover{border-color:var(--blue)}
+button.primary{background:#238636;border-color:#2ea043;color:#fff}
+button.small{padding:3px 8px;font-size:12px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;flex-wrap:wrap}
+.tabs button{border-radius:8px 8px 0 0;border-bottom:none;font-family:var(--mono);font-size:14px;background:transparent}
+.tabs button[aria-selected=true]{background:var(--panel);color:var(--green);border-color:var(--line);position:relative;top:1px}
+fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 14px;padding:12px}
+legend{font:600 12px var(--mono);color:var(--blue);text-transform:uppercase;padding:0 6px;letter-spacing:.05em}
+.out{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0}
+.term{background:#010409;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.termbar{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);background:#0b0f14;flex-wrap:wrap}
+.dots i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+.termbar .sp{flex:1}
+pre.cmd{margin:0;padding:12px 14px;color:var(--green);white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;min-height:46px}
+pre.cmd::before{content:"$ ";color:var(--muted)}
+.warns{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.warn{border-left:4px solid var(--amber);background:#2a2312;padding:6px 10px;border-radius:4px;font-size:13px}
+.warn.err{border-color:var(--red);background:#2d1416}
+.warn.info{border-color:var(--blue);background:#0f2236}
+.banner{background:var(--red);color:#fff;font-weight:700;padding:10px 14px;border-radius:8px;margin-top:8px;font-size:14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border-radius:999px;font-family:var(--mono);font-size:12px}
+.chip[aria-pressed=true]{background:var(--green);color:#0d1117;border-color:var(--green)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-top:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.card h4{margin:0;font-size:15px}
+.tag{display:inline-block;font:11px var(--mono);padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--blue);margin-right:6px}
+.card pre{margin:0;background:#010409;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12.5px;color:var(--green);white-space:pre-wrap;word-break:break-word}
+.card .purpose{color:var(--fg);font-size:13.5px;margin:0}
+.card .watch{font-size:12.5px;color:#f0c674;margin:0}
+.card .watch::before{content:"⚠ watch out: ";font-weight:700}
+.card .acts{display:flex;gap:6px;margin-top:auto}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--green);color:#0d1117;font-weight:700;padding:8px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+.toast.show{opacity:1}
+footer{border-top:1px solid var(--line);margin-top:40px;padding:20px 0;color:var(--muted);font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (max-width:640px){.out{position:static}.cards{grid-template-columns:1fr}.grid{grid-template-columns:1fr}pre.cmd{font-size:13px}header nav{margin-left:0}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="logo" href="#top">pg<span>-commands</span></a>
+  <span class="tagline">pg_dump · pg_restore · psql builder &amp; recipes — PostgreSQL 13–17</span>
+  <nav aria-label="Main">
+    <a href="#builder">Builder</a><a href="#recipes">Recipes</a><a href="#profiles">Profiles</a>
+    <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">Wrappers ↗</a>
+  </nav>
+</div></header>
+<main class="wrap" id="top">
+
+<section id="profiles" aria-labelledby="h-prof">
+<h2 id="h-prof">connection</h2>
+<div class="panel">
+  <div class="row" style="margin-bottom:12px">
+    <div class="field" style="flex:1 1 200px"><label for="profSel">Saved profile</label>
+      <select id="profSel"><option value="">— choose a profile —</option></select></div>
+    <div class="field" style="flex:1 1 160px"><label for="profName">Profile name</label>
+      <input type="text" id="profName" placeholder="e.g. orders-prod" autocomplete="off"></div>
+    <button id="profSave">Save profile</button>
+    <button id="profDel">Delete</button>
+    <button id="profExport">Export JSON</button>
+    <label class="btn" for="profImport" tabindex="0" id="profImportLbl">Import JSON</label>
+    <input type="file" id="profImport" accept="application/json,.json" class="sr">
+  </div>
+  <div class="grid" id="connFields"></div>
+  <p class="tip" style="margin:10px 0 0">🔒 Passwords are never stored. Use <code>~/.pgpass</code> or <code>PGPASSWORD</code> in your shell. Profiles live only in this browser's localStorage.</p>
+</div>
+</section>
+
+<section id="builder" aria-labelledby="h-build">
+<h2 id="h-build">builder</h2>
+<div class="tabs" role="tablist" aria-label="Tool">
+  <button role="tab" id="tab-pg_dump" aria-controls="panel" aria-selected="true">pg_dump</button>
+  <button role="tab" id="tab-pg_restore" aria-controls="panel" aria-selected="false" tabindex="-1">pg_restore</button>
+  <button role="tab" id="tab-psql" aria-controls="panel" aria-selected="false" tabindex="-1">psql</button>
+</div>
+<div class="out">
+  <div class="term">
+    <div class="termbar"><span class="dots" aria-hidden="true"><i style="background:#f85149"></i><i style="background:#d29922"></i><i style="background:#3fb950"></i></span>
+      <span class="mono tip" id="toolName">pg_dump</span><span class="sp"></span>
+      <label class="check tip" style="align-items:center"><input type="checkbox" id="multiline"> multi-line</label>
+      <button class="small" id="resetBtn">Reset</button>
+      <button class="small primary" id="copyBtn">Copy</button>
+    </div>
+    <pre class="cmd" id="cmd" aria-live="polite" aria-label="Generated command"></pre>
+  </div>
+  <div id="banner"></div>
+  <div class="warns" id="warns" aria-live="polite"></div>
+</div>
+<div id="panel" role="tabpanel" class="panel"></div>
+</section>
+
+<section id="recipes" aria-labelledby="h-rec">
+<h2 id="h-rec">recipes</h2>
+<div class="row">
+  <div class="field" style="flex:1 1 260px"><label for="rq">Search recipes</label>
+    <input type="text" id="rq" placeholder="schema, csv, parallel, blocking…" autocomplete="off"></div>
+  <div class="chips" role="group" aria-label="Filter by tool" id="chips"></div>
+</div>
+<p class="tip" id="rcount"></p>
+<div class="cards" id="cards"></div>
+</section>
+</main>
+<footer><div class="wrap">
+  <strong>Also see:</strong> <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">pg-dump-wrapper</a> — Manideep's <code>pg_dump</code>/<code>psql</code> wrapper scripts for scheduled, logged backups and runs.<br>
+  Everything runs in your browser; nothing is sent anywhere. Always review a command before running it, especially against production.
+</div></footer>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// POSIX shell quoting: leave safe words bare, single-quote everything else.
+function shq(s){s=String(s);if(s==="")return"''";if(/^[A-Za-z0-9_\-.,\/:=@%+]+$/.test(s))return s;if(s.includes("'")&&!/[$`"!]|\\[$`"\\\n]|\\$/.test(s))return'"'+s+'"';return"'"+s.replace(/'/g,"'\\''")+"'";}
+const list=s=>String(s||"").split(/[\n,]+/).map(x=>x.trim()).filter(Boolean);
+const today=()=>new Date().toISOString().slice(0,10).replace(/-/g,"");
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+/* ---------- field definitions ---------- */
+const CONN=[
+ {k:"host",l:"Host",f:"-h",t:"text",ph:"db.example.com",tip:"Server host name or IP. Leave empty for local Unix socket."},
+ {k:"port",l:"Port",f:"-p",t:"text",def:"5432",tip:"TCP port; PostgreSQL default is 5432."},
+ {k:"user",l:"User",f:"-U",t:"text",ph:"postgres",tip:"Role to connect as. Password comes from ~/.pgpass or PGPASSWORD."},
+ {k:"db",l:"Database",f:"-d",t:"text",ph:"mydb",tip:"pg_dump/psql: database to use. pg_restore: target database (with --create: the maintenance DB, e.g. postgres)."}
+];
+const T={
+pg_dump:{groups:[
+ ["Output",[
+  {k:"fmt",l:"Format",f:"-F",t:"select",def:"c",opts:[["c","-Fc  custom (recommended)"],["d","-Fd  directory (parallel)"],["p","-Fp  plain SQL"],["t","-Ft  tar"]],tip:"Custom (-Fc) is compressed and lets pg_restore pick/reorder objects. Directory allows -j. Plain = SQL for psql."},
+  {k:"file",l:"Output file",f:"-f",t:"text",ph:"{db}_{date}.dump",helper:"{db}_{date}",tip:"{db} and {date} (YYYYMMDD) are replaced for you. Required for -Fd (a new directory)."},
+  {k:"jobs",l:"Parallel jobs",f:"-j",t:"number",ph:"4",tip:"Only with -Fd. Opens jobs+1 connections."},
+  {k:"Z",l:"Compression",f:"-Z",t:"text",ph:"0-9",tip:"0-9 works on 13+. PG16+ also accepts gzip:9, lz4, zstd. Not supported with -Ft."},
+  {k:"v",l:"Verbose",f:"-v",t:"check",tip:"Print progress to stderr — handy for logs."}]],
+ ["Filter objects",[
+  {k:"n",l:"Include schemas",f:"-n",t:"multi",ph:"sales, hr",tip:"One -n per entry; patterns like 'app_*' allowed."},
+  {k:"N",l:"Exclude schemas",f:"-N",t:"multi",ph:"tmp",tip:"Skip these schemas."},
+  {k:"tt",l:"Include tables",f:"-t",t:"multi",ph:"sales.orders",tip:"One -t per entry. Schema-qualify to be precise."},
+  {k:"TT",l:"Exclude tables",f:"-T",t:"multi",ph:"public.big_log",tip:"Skip these tables entirely."},
+  {k:"xtd",l:"Exclude table data",f:"--exclude-table-data",t:"multi",ph:"public.audit_log",tip:"Keep the table definition, skip its rows."}]],
+ ["Content",[
+  {k:"content",l:"What to dump",t:"select",def:"",opts:[["","schema + data"],["--schema-only","--schema-only (DDL only)"],["--data-only","--data-only (rows only)"]],tip:"-s / -a. Mutually exclusive."},
+  {k:"section",l:"Section",f:"--section",t:"select",def:"",opts:[["","all sections"],["pre-data","pre-data"],["data","data"],["post-data","post-data"]],tip:"pre-data = tables etc., data = rows, post-data = indexes, constraints, triggers."},
+  {k:"noowner",l:"--no-owner",f:"--no-owner",t:"check",tip:"Don't emit ALTER OWNER. Good when restoring as a different user."},
+  {k:"nopriv",l:"--no-privileges",f:"--no-privileges",t:"check",tip:"Skip GRANT/REVOKE (-x)."},
+  {k:"clean",l:"--clean",f:"--clean",t:"check",tip:"Plain format only: emit DROP before CREATE."},
+  {k:"ifex",l:"--if-exists",f:"--if-exists",t:"check",tip:"Use DROP … IF EXISTS. Requires --clean."},
+  {k:"create",l:"--create",f:"--create",t:"check",tip:"Plain format: include CREATE DATABASE and \\connect."}]]
+]},
+pg_restore:{groups:[
+ ["Input",[
+  {k:"in",l:"Dump file / directory",t:"text",ph:"mydb_20261016.dump",tip:"A -Fc, -Fd or -Ft archive. Plain .sql files go through psql -f instead."},
+  {k:"jobs",l:"Parallel jobs",f:"-j",t:"number",ph:"4",tip:"Parallel restore (needs a file/dir, not stdin). Can't combine with --single-transaction."},
+  {k:"l",l:"-l list contents only",f:"-l",t:"check",tip:"Print the archive's table of contents; nothing is restored."},
+  {k:"lout",l:"Save list to",t:"text",ph:"restore.list",tip:"With -l: redirect the list to this file, edit it, then use -L."},
+  {k:"L",l:"Use list file",f:"-L",t:"text",ph:"restore.list",tip:"Restore only entries in this (edited) list; comment lines out with ;"},
+  {k:"v",l:"Verbose",f:"-v",t:"check",tip:"Print progress to stderr."}]],
+ ["Filter objects",[
+  {k:"n",l:"Schemas",f:"-n",t:"multi",ph:"sales",tip:"Restore only these schemas."},
+  {k:"tt",l:"Tables",f:"-t",t:"multi",ph:"orders",tip:"Bare table name (no schema); combine with -n. Indexes/constraints are NOT restored with -t."}]],
+ ["Behaviour",[
+  {k:"content",l:"What to restore",t:"select",def:"",opts:[["","schema + data"],["--schema-only","--schema-only"],["--data-only","--data-only"]],tip:"-s / -a."},
+  {k:"clean",l:"--clean",f:"--clean",t:"check",tip:"DROP objects before recreating them in the target."},
+  {k:"ifex",l:"--if-exists",f:"--if-exists",t:"check",tip:"Use IF EXISTS on drops so missing objects don't error. Requires --clean."},
+  {k:"create",l:"--create",f:"--create",t:"check",tip:"Create the database named in the dump; -d must point at an existing DB (e.g. postgres)."},
+  {k:"noowner",l:"--no-owner",f:"--no-owner",t:"check",tip:"Objects are owned by the connecting user."},
+  {k:"nopriv",l:"--no-privileges",f:"--no-privileges",t:"check",tip:"Skip GRANT/REVOKE."},
+  {k:"single",l:"--single-transaction",f:"--single-transaction",t:"check",tip:"All or nothing (-1). Implies --exit-on-error. Not with -j."},
+  {k:"exit",l:"--exit-on-error",f:"--exit-on-error",t:"check",tip:"Stop at the first error instead of continuing."}]]
+]},
+psql:{groups:[
+ ["Run",[
+  {k:"c",l:"Command (-c)",f:"-c",t:"textarea",ph:"SELECT now();",tip:"One SQL or meta-command. Ignored when the \\copy helper is filled in."},
+  {k:"file",l:"SQL file (-f)",f:"-f",t:"text",ph:"migration.sql",tip:"Run a script file."},
+  {k:"oes",l:"-v ON_ERROR_STOP=1",t:"check",tip:"Stop on the first error and exit with status 3. Use for scripts!"},
+  {k:"one",l:"-1 single transaction",f:"-1",t:"check",tip:"Wrap all -c/-f in one transaction."},
+  {k:"X",l:"-X ignore ~/.psqlrc",f:"-X",t:"check",def:true,tip:"Predictable output for scripts/cron."},
+  {k:"q",l:"-q quiet",f:"-q",t:"check",tip:"Suppress informational messages."}]],
+ ["Output format",[
+  {k:"csv",l:"--csv",f:"--csv",t:"check",tip:"CSV output mode (PG12+ client)."},
+  {k:"A",l:"-A unaligned",f:"-A",t:"check",tip:"No padding — good for scripting."},
+  {k:"tonly",l:"-t tuples only",f:"-t",t:"check",tip:"No headers or row-count footer."},
+  {k:"F",l:"-F field separator",f:"-F",t:"text",ph:"|",tip:"Separator for -A output, e.g. ',' or '|'."},
+  {k:"o",l:"-o output file",f:"-o",t:"text",ph:"result.txt",tip:"Write query results to a file."}]],
+ ["\\copy export helper (query → CSV)",[
+  {k:"cq",l:"Query",t:"textarea",ph:"SELECT * FROM sales.orders WHERE created_at > now() - interval '1 day'",tip:"Runs client-side \\copy — the CSV lands on YOUR machine, no superuser needed."},
+  {k:"cf",l:"CSV file",t:"text",ph:"export.csv",def:"export.csv",tip:"Written with FORMAT csv, HEADER."}]]
+]}
+};
+
+/* ---------- state ---------- */
+let tab=LS.get("pgc.tab","pg_dump");if(!T[tab])tab="pg_dump";
+const defaults=fs=>Object.fromEntries(fs.map(f=>[f.k,f.def!==undefined?f.def:(f.t==="check"?false:"")]));
+const allFields=t=>T[t].groups.flatMap(g=>g[1]);
+let conn=Object.assign(defaults(CONN),LS.get("pgc.conn",{}));
+let st={};for(const t in T)st[t]=Object.assign(defaults(allFields(t)),(LS.get("pgc.state",{})[t])||{});
+const save=()=>{LS.set("pgc.conn",conn);LS.set("pgc.state",st);LS.set("pgc.tab",tab)};
+
+/* ---------- rendering of controls ---------- */
+function ctl(f,val,prefix){
+ const id=prefix+"-"+f.k,tid=id+"-tip";
+ const lab=f.f&&!f.l.includes(f.f)?`${esc(f.l)} <code>${esc(f.f)}</code>`:esc(f.l);
+ if(f.t==="check")return`<div class="check" id="w-${id}"><input type="checkbox" id="${id}" data-k="${f.k}" aria-describedby="${tid}" ${val?"checked":""}><div><label for="${id}" class="mono" style="font-size:13px">${esc(f.l)}</label><div class="tip" id="${tid}">${esc(f.tip)}</div></div></div>`;
+ let input;
+ if(f.t==="select")input=`<select id="${id}" data-k="${f.k}" aria-describedby="${tid}">${f.opts.map(o=>`<option value="${esc(o[0])}" ${o[0]===val?"selected":""}>${esc(o[1])}</option>`).join("")}</select>`;
+ else if(f.t==="textarea"||f.t==="multi")input=`<textarea id="${id}" data-k="${f.k}" rows="${f.t==="multi"?1:2}" placeholder="${esc(f.ph||"")}" aria-describedby="${tid}" spellcheck="false">${esc(val)}</textarea>`;
+ else input=`<input type="${f.t==="number"?"number":"text"}" ${f.t==="number"?'min="1" max="64"':""} id="${id}" data-k="${f.k}" value="${esc(val)}" placeholder="${esc(f.ph||"")}" aria-describedby="${tid}" autocomplete="off" spellcheck="false">`;
+ const helper=f.helper?` <button class="small" type="button" data-helper="${f.k}" aria-label="Insert {db}_{date} file name">{db}_{date}</button>`:"";
+ const mtip=f.t==="multi"?" Separate entries with commas or new lines.":"";
+ return`<div class="field" id="w-${id}"><label for="${id}">${lab}${helper}</label>${input}<div class="tip" id="${tid}">${esc(f.tip+mtip)}</div></div>`;
+}
+function renderConn(){$("#connFields").innerHTML=CONN.map(f=>ctl(f,conn[f.k],"conn")).join("");}
+function renderPanel(){
+ $("#panel").innerHTML=T[tab].groups.map(([g,fs])=>`<fieldset><legend>${esc(g)}</legend><div class="grid">${fs.map(f=>ctl(f,st[tab][f.k],tab)).join("")}</div></fieldset>`).join("");
+ document.querySelectorAll(".tabs button").forEach(b=>{const on=b.id==="tab-"+tab;b.setAttribute("aria-selected",on);b.tabIndex=on?0:-1});
+ $("#panel").setAttribute("aria-labelledby","tab-"+tab);$("#toolName").textContent=tab;
+ update();
+}
+function setDisabled(k,dis){const el=document.getElementById(tab+"-"+k);if(!el)return;el.disabled=dis;const w=document.getElementById("w-"+tab+"-"+k);if(w)w.classList.toggle("disabled",dis);}
+
+/* ---------- command generation ---------- */
+function connArgs(includeDb){const a=[];if(conn.host)a.push("-h",conn.host);if(conn.port)a.push("-p",conn.port);if(conn.user)a.push("-U",conn.user);if(includeDb&&conn.db)a.push("-d",conn.db);return a;}
+const looksProd=()=>/prod/i.test(conn.host+" "+conn.db);
+function build(t,v){
+ const a=[],w=[];let tail="";const W=(m,l)=>w.push([l||"warn",m]);
+ if(t==="pg_dump"){
+  a.push(...connArgs(true));a.push("-F"+v.fmt);
+  if(v.file){a.push("-f",v.file.replace(/\{db\}/g,conn.db||"db").replace(/\{date\}/g,today()));}
+  else if(v.fmt==="d")W("-Fd needs -f <directory> (pg_dump creates it; it must not already exist).","err");
+  else if(v.fmt!=="p")W("No -f: the binary archive goes to stdout — redirect or pipe it.","info");
+  if(v.jobs){if(v.fmt==="d")a.push("-j",v.jobs);else W("-j (parallel) only works with the directory format -Fd; it's left out.","err");}
+  if(v.Z){if(v.fmt==="t")W("-Ft (tar) does not support compression; -Z is left out.","err");else a.push("-Z",v.Z);}
+  list(v.n).forEach(x=>a.push("-n",x));list(v.N).forEach(x=>a.push("-N",x));
+  list(v.tt).forEach(x=>a.push("-t",x));list(v.TT).forEach(x=>a.push("-T",x));
+  list(v.xtd).forEach(x=>a.push("--exclude-table-data="+x));
+  if(v.content)a.push(v.content);if(v.section)a.push("--section="+v.section);
+  if(v.content&&v.section)W("--section together with --schema-only/--data-only is redundant; prefer one of them.");
+  if(v.noowner)a.push("--no-owner");if(v.nopriv)a.push("--no-privileges");
+  if(v.clean){if(v.content==="--data-only")W("pg_dump rejects --clean with --data-only.","err");a.push("--clean");if(v.fmt!=="p")W("--clean only affects plain (-Fp) output. For archives pass --clean to pg_restore instead.");}
+  if(v.ifex){a.push("--if-exists");if(!v.clean)W("--if-exists requires --clean — pg_dump will refuse to run.","err");}
+  else if(v.clean)W("--clean without --if-exists: DROP errors for objects that don't exist yet in the target. Add --if-exists.");
+  if(v.create){a.push("--create");if(v.fmt!=="p")W("--create in pg_dump only matters for plain output; for archives use pg_restore --create.","info");}
+  if(v.v)a.push("-v");
+  if(v.fmt==="p")W("Plain SQL dumps are restored with psql -f, not pg_restore.","info");
+  if(v.fmt==="c"&&!v.jobs)W("Tip: -Fc is the recommended default — compressed, and pg_restore can restore selectively and in parallel.","info");
+ }
+ if(t==="pg_restore"){
+  if(v.l){a.push("-l");if(v.in)a.push(v.in);else W("Give the dump file to list.","err");if(v.lout)tail=" > "+shq(v.lout);W("-l only lists the archive's contents; other options are ignored.","info");return{a,w,tail};}
+  a.push(...connArgs(true));
+  if(!conn.db)W("No -d target: pg_restore will print SQL to stdout instead of restoring.","info");
+  if(v.jobs){a.push("-j",v.jobs);if(v.single)W("--single-transaction cannot be combined with -j — pg_restore will refuse. Pick one.","err");}
+  if(v.L)a.push("-L",v.L);
+  list(v.n).forEach(x=>a.push("-n",x));
+  list(v.tt).forEach(x=>{if(x.includes("."))W(`pg_restore -t takes a bare table name: use -n ${x.split(".")[0]} -t ${x.split(".").slice(1).join(".")}.`,"err");a.push("-t",x)});
+  if(list(v.tt).length)W("-t restores only the table definition/data — not its indexes, constraints or triggers.","info");
+  if(v.content)a.push(v.content);
+  if(v.clean){a.push("--clean");if(v.content==="--data-only")W("--clean with --data-only is rejected by pg_restore.","err");}
+  if(v.ifex){a.push("--if-exists");if(!v.clean)W("--if-exists requires --clean.","err");}
+  else if(v.clean)W("--clean without --if-exists: expect DROP errors for objects missing in the target. Add --if-exists.");
+  if(v.create){a.push("--create");if(conn.db&&conn.db!=="postgres"&&conn.db!=="template1")W(`With --create, -d is only the DB to connect to first (usually postgres); the new DB gets the name stored in the dump.`,"info");}
+  if(v.noowner)a.push("--no-owner");if(v.nopriv)a.push("--no-privileges");
+  if(v.single)a.push("--single-transaction");if(v.exit)a.push("--exit-on-error");
+  if(v.single&&v.exit)W("--single-transaction already implies --exit-on-error.","info");
+  if(v.v)a.push("-v");
+  if(v.in){a.push(v.in);if(/\.(sql|sql\.gz|txt)$/i.test(v.in))W("This looks like a plain SQL dump (-Fp). pg_restore can't read it — use psql -f (or gunzip -c … | psql).","err");}
+  else W("Add the dump file or directory to restore.","err");
+ }
+ if(t==="psql"){
+  if(v.X)a.push("-X");a.push(...connArgs(true));
+  if(v.oes)a.push("-v","ON_ERROR_STOP=1");
+  if(v.one)a.push("-1");if(v.q)a.push("-q");
+  if(v.csv)a.push("--csv");if(v.A)a.push("-A");if(v.tonly)a.push("-t");
+  if(v.F){a.push("-F",v.F);if(!v.A)W("-F only applies to unaligned output; add -A.");}
+  if(v.csv&&(v.A||v.F))W("--csv already sets CSV output; -A/-F are unnecessary.");
+  if(v.o)a.push("-o",v.o);
+  if(v.cq){let q=v.cq.trim().replace(/;+\s*$/,"");if(q!==v.cq.trim())W("Removed the trailing ; — it is not allowed inside \\copy ( … ).","info");
+   a.push("-c",`\\copy (${q.replace(/\s*\n\s*/g," ")}) TO '${(v.cf||"export.csv").replace(/'/g,"''")}' WITH (FORMAT csv, HEADER)`);
+   if(v.c)W("The \\copy helper is filled in, so -c above is ignored.","info");}
+  else if(v.c)a.push("-c",v.c);
+  if(v.file)a.push("-f",v.file);
+  if(v.one&&!v.c&&!v.file&&!v.cq)W("-1 only has an effect together with -c or -f.");
+  if((v.file||v.one)&&!v.oes)W("Running a script without -v ON_ERROR_STOP=1: psql keeps going after errors and still exits 0.");
+  if(v.file&&looksProd())W("Running a script against what looks like PRODUCTION — double-check host and database.","err");
+ }
+ return{a,w,tail};
+}
+function render(t,v){const r=build(t,v);const ml=$("#multiline").checked;
+ const VAL=new Set(["-h","-p","-U","-d","-f","-j","-Z","-n","-N","-L","-c","-F","-o"]);
+ if(t==="psql")VAL.add("-v");else VAL.add("-t").add("-T");
+ const parts=[t];for(let i=0;i<r.a.length;i++){const x=r.a[i];if(VAL.has(x)&&i+1<r.a.length)parts.push(x+" "+shq(r.a[++i]));else parts.push(shq(x));}
+ return{cmd:parts.join(ml?" \\\n    ":" ")+r.tail,w:r.w};}
+function update(){
+ const v=st[tab];
+ if(tab==="pg_dump"){setDisabled("jobs",v.fmt!=="d");setDisabled("clean",v.fmt!=="p");setDisabled("ifex",v.fmt!=="p"&&!v.ifex);setDisabled("create",v.fmt!=="p"&&!v.create);setDisabled("Z",v.fmt==="t");}
+ if(tab==="pg_restore"){setDisabled("lout",!v.l);}
+ if(tab==="psql"){setDisabled("F",!v.A&&!v.F);}
+ const r=render(tab,v);$("#cmd").textContent=r.cmd;
+ $("#warns").innerHTML=r.w.map(([l,m])=>`<div class="warn ${l==="err"?"err":l==="info"?"info":""}">${l==="err"?"✖":l==="info"?"ℹ":"⚠"} ${esc(m)}</div>`).join("");
+ $("#banner").innerHTML=(tab==="pg_restore"&&!v.l&&looksProd())?`<div class="banner" role="alert">⛔ Restore target looks like PRODUCTION (host/db contains "prod"): ${esc((conn.host||"")+" / "+(conn.db||""))}. Make sure this is intended${v.clean?" — --clean will DROP objects":""}.</div>`:"";
+ save();
+}
+
+/* ---------- events ---------- */
+function onInput(e){const el=e.target;const k=el.dataset.k;if(!k)return;const val=el.type==="checkbox"?el.checked:el.value;
+ if(el.id.startsWith("conn-")){conn[k]=val;$("#profSel").value="";}else st[tab][k]=val;update();}
+document.addEventListener("input",onInput);document.addEventListener("change",onInput);
+$("#panel").addEventListener("click",e=>{const h=e.target.dataset&&e.target.dataset.helper;if(!h)return;const ext={c:".dump",d:"_dir",p:".sql",t:".tar"}[st.pg_dump.fmt];st.pg_dump.file="{db}_{date}"+ext;renderPanel();});
+document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{tab=b.id.slice(4);renderPanel();}));
+$(".tabs").addEventListener("keydown",e=>{const ks=Object.keys(T);let i=ks.indexOf(tab);if(e.key==="ArrowRight")i=(i+1)%3;else if(e.key==="ArrowLeft")i=(i+2)%3;else return;tab=ks[i];renderPanel();document.getElementById("tab-"+tab).focus();});
+$("#multiline").addEventListener("change",update);
+$("#resetBtn").addEventListener("click",()=>{st[tab]=defaults(allFields(tab));renderPanel();toast("Reset "+tab+" options");});
+function copy(text){const ok=()=>toast("Copied ✓");if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(text).then(ok,()=>fallback(text));else fallback(text);
+ function fallback(t){const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");ok()}catch(e){}ta.remove();}}
+$("#copyBtn").addEventListener("click",()=>copy($("#cmd").textContent));
+let tt;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),1400);}
+
+/* ---------- profiles ---------- */
+let profiles=LS.get("pgc.profiles",[]);
+function renderProfiles(){$("#profSel").innerHTML='<option value="">— choose a profile —</option>'+profiles.map((p,i)=>`<option value="${i}">${esc(p.name)} (${esc(p.user||"")}@${esc(p.host||"local")}/${esc(p.db||"")})</option>`).join("");}
+const clean=p=>({name:String(p.name||"").slice(0,80),host:String(p.host||""),port:String(p.port||"5432"),user:String(p.user||""),db:String(p.db||"")});
+$("#profSel").addEventListener("change",e=>{const p=profiles[e.target.value];if(!p)return;Object.assign(conn,{host:p.host,port:p.port,user:p.user,db:p.db});$("#profName").value=p.name;renderConn();$("#profSel").value=e.target.value;update();});
+$("#profSave").addEventListener("click",()=>{const name=$("#profName").value.trim();if(!name){toast("Enter a profile name");$("#profName").focus();return;}
+ const p=clean(Object.assign({name},conn));const i=profiles.findIndex(x=>x.name===name);if(i>=0)profiles[i]=p;else profiles.push(p);LS.set("pgc.profiles",profiles);renderProfiles();$("#profSel").value=String(i>=0?i:profiles.length-1);toast("Saved profile "+name);});
+$("#profDel").addEventListener("click",()=>{const i=$("#profSel").value;if(i===""){toast("Choose a profile first");return;}const n=profiles[i].name;if(!confirm("Delete profile "+n+"?"))return;profiles.splice(+i,1);LS.set("pgc.profiles",profiles);renderProfiles();toast("Deleted "+n);});
+$("#profExport").addEventListener("click",()=>{const b=new Blob([JSON.stringify(profiles,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="pg-commands-profiles.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
+$("#profImportLbl").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();$("#profImport").click();}});
+$("#profImport").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{const arr=JSON.parse(t);if(!Array.isArray(arr))throw 0;let n=0;arr.forEach(x=>{if(!x||!x.name)return;const p=clean(x);const i=profiles.findIndex(y=>y.name===p.name);if(i>=0)profiles[i]=p;else profiles.push(p);n++;});LS.set("pgc.profiles",profiles);renderProfiles();toast("Imported "+n+" profile(s)");}).catch(()=>toast("Not a valid profiles JSON file"));e.target.value="";});
+
+/* ---------- recipes ---------- */
+const R=[
+ {tool:"pg_dump",title:"Back up a whole database (custom format)",cmd:String.raw`pg_dump -h db.example.com -U app -d shop -Fc -f shop_$(date +%Y%m%d).dump`,p:"Compressed, restorable selectively and in parallel with pg_restore.",w:"Roles and tablespaces aren't included — also run pg_dumpall --globals-only.",load:["pg_dump",{fmt:"c",file:"{db}_{date}.dump"}]},
+ {tool:"pg_dump",title:"Back up one schema",cmd:String.raw`pg_dump -h db.example.com -U app -d shop -Fc -n sales -f shop_sales.dump`,p:"Dump only the objects in schema sales.",w:"Extensions and objects in other schemas that sales depends on are not included.",load:["pg_dump",{fmt:"c",n:"sales",file:"{db}_sales.dump"}]},
+ {tool:"pg_dump",title:"Back up one table",cmd:String.raw`pg_dump -h db.example.com -U app -d shop -Fc -t sales.orders -f orders.dump`,p:"Table definition, data, indexes, constraints and owned sequences.",w:"Tables referenced by its foreign keys are not dumped — restore them first.",load:["pg_dump",{fmt:"c",tt:"sales.orders",file:"orders.dump"}]},
+ {tool:"pg_dump",title:"Schema only (DDL) as plain SQL",cmd:String.raw`pg_dump -h db.example.com -U app -d shop --schema-only --no-owner --no-privileges -f shop_schema.sql`,p:"Readable DDL for reviews, diffs or creating an empty copy.",w:"No rows — sequences start from their dumped values but tables are empty.",load:["pg_dump",{fmt:"p",content:"--schema-only",noowner:true,nopriv:true,file:"{db}_schema.sql"}]},
+ {tool:"pg_dumpall",title:"Roles & tablespaces (globals only)",cmd:String.raw`pg_dumpall -h db.example.com -U postgres --globals-only -f globals.sql`,p:"Roles, memberships and tablespaces that pg_dump never includes.",w:"On RDS/Aurora add --no-role-passwords (pg_authid isn't readable there)."},
+ {tool:"pg_dump",title:"Parallel directory dump",cmd:String.raw`pg_dump -h db.example.com -U app -d shop -Fd -j 4 -f shop_dir`,p:"Fastest way to dump a big database: one file per table, 4 workers.",w:"Uses jobs+1 connections; the target directory must not exist yet.",load:["pg_dump",{fmt:"d",jobs:"4",file:"{db}_dir"}]},
+ {tool:"pg_dump",title:"Skip the rows of huge log tables",cmd:String.raw`pg_dump -h db.example.com -U app -d shop -Fc --exclude-table-data=public.audit_log -f shop_nolog.dump`,p:"Keep the table structure but not its millions of rows.",w:"Patterns are matched per table; quote wildcards like 'public.log_*'.",load:["pg_dump",{fmt:"c",xtd:"public.audit_log",file:"{db}_nolog.dump"}]},
+ {tool:"pg_dump",title:"Compressed plain dump with gzip",cmd:String.raw`set -o pipefail; pg_dump -h db.example.com -U app -d shop | gzip > shop_$(date +%Y%m%d).sql.gz
+# restore: gunzip -c shop_YYYYMMDD.sql.gz | psql -X -v ON_ERROR_STOP=1 -d shop_copy`,p:"Portable SQL that's small on disk and restorable anywhere with psql.",w:"Without pipefail a failed pg_dump still exits 0 because gzip succeeded."},
+ {tool:"pg_restore",title:"Check what's inside a dump",cmd:String.raw`pg_restore -l shop.dump`,p:"Print the table of contents of a -Fc/-Fd/-Ft archive without restoring.",w:"Doesn't work on plain .sql dumps — just open those with less.",load:["pg_restore",{l:true,in:"shop.dump"}]},
+ {tool:"pg_restore",title:"List, edit, then selective restore (-L)",cmd:String.raw`pg_restore -l shop.dump > shop.list
+# edit shop.list: put ; in front of entries to skip
+pg_restore -h db.example.com -U app -d shop_copy -L shop.list shop.dump`,p:"Restore exactly the objects you want, in dependency order.",w:"Commented-out entries are skipped — including indexes you might still need.",load:["pg_restore",{L:"shop.list",in:"shop.dump"}]},
+ {tool:"pg_restore",title:"Restore a single table from -Fc",cmd:String.raw`pg_restore -h db.example.com -U app -d shop_copy -n sales -t orders --no-owner shop.dump`,p:"Bring back one table's definition and rows.",w:"The schema must already exist in the target (CREATE SCHEMA sales first). -t takes the bare table name, and indexes, constraints and triggers are NOT restored.",load:["pg_restore",{n:"sales",tt:"orders",noowner:true,in:"shop.dump"}]},
+ {tool:"pg_restore",title:"Restore only data for one table into an existing table",cmd:String.raw`pg_restore -h db.example.com -U app -d shop -n sales -t orders --data-only --single-transaction shop.dump`,p:"Refill a truncated table without touching its DDL.",w:"Rows are appended — truncate first or you'll hit duplicate keys.",load:["pg_restore",{n:"sales",tt:"orders",content:"--data-only",single:true,in:"shop.dump"}]},
+ {tool:"pg_restore",title:"Restore into a new database (--create)",cmd:String.raw`pg_restore -h db.example.com -U postgres -d postgres --create --no-owner shop.dump`,p:"Creates the database named in the dump, then restores into it.",w:"-d is only where pg_restore connects first; it fails if the DB already exists (add --clean to drop it).",load:["pg_restore",{create:true,noowner:true,in:"shop.dump"}]},
+ {tool:"pg_restore",title:"Parallel restore into an empty database",cmd:String.raw`createdb -h db.example.com -U app shop_copy
+pg_restore -h db.example.com -U app -d shop_copy -j 4 --no-owner --no-privileges shop.dump`,p:"Fast restore with 4 workers; ownership goes to the connecting user.",w:"-j can't be combined with --single-transaction or with reading from stdin.",load:["pg_restore",{jobs:"4",noowner:true,nopriv:true,in:"shop.dump"}]},
+ {tool:"pg_restore",title:"Clean, all-or-nothing restore",cmd:String.raw`pg_restore -h db.example.com -U app -d shop_copy --clean --if-exists --single-transaction shop.dump`,p:"Drop and recreate dumped objects; roll back everything on any error.",w:"--clean DROPs objects in the target. Never point this at prod by accident.",load:["pg_restore",{clean:true,ifex:true,single:true,in:"shop.dump"}]},
+ {tool:"pg_restore",title:"Copy a database between servers (pipe)",cmd:String.raw`createdb -h dst.example.com -U app shop
+pg_dump -h src.example.com -U app -d shop -Fc | pg_restore -h dst.example.com -U app -d shop --no-owner --exit-on-error
+# or plain SQL: pg_dump -h src.example.com -U app -d shop | psql -X -h dst.example.com -U app -d shop -v ON_ERROR_STOP=1`,p:"Clone without writing a dump file to disk.",w:"Piped restores can't use -j. Use ~/.pgpass — both sides can't prompt for a password at once."},
+ {tool:"psql",title:"Run a migration safely",cmd:String.raw`psql -X -h db.example.com -U app -d shop -v ON_ERROR_STOP=1 -1 -f migration.sql`,p:"Stop at the first error and roll the whole file back.",w:"Statements like CREATE INDEX CONCURRENTLY or VACUUM can't run inside -1.",load:["psql",{oes:true,one:true,X:true,file:"migration.sql"}]},
+ {tool:"psql",title:"Export a query to CSV (\\copy)",cmd:String.raw`psql -X -h db.example.com -U app -d shop -c "\copy (SELECT * FROM sales.orders WHERE amt > 100) TO 'orders.csv' WITH (FORMAT csv, HEADER)"`,p:"Client-side export: the file lands on your machine, no superuser needed.",w:"No trailing semicolon inside the parentheses, and keep \\copy on one line.",load:["psql",{X:true,cq:"SELECT * FROM sales.orders WHERE amt > 100",cf:"orders.csv"}]},
+ {tool:"psql",title:"Import a CSV file (\\copy FROM)",cmd:String.raw`psql -X -h db.example.com -U app -d shop -v ON_ERROR_STOP=1 -c "\copy sales.orders (amt, note) FROM 'orders.csv' WITH (FORMAT csv, HEADER)"`,p:"Bulk-load a CSV from your machine into an existing table.",w:"Column list must match the CSV order; one bad row aborts the whole load.",load:["psql",{X:true,oes:true,c:"\\copy sales.orders (amt, note) FROM 'orders.csv' WITH (FORMAT csv, HEADER)"}]},
+ {tool:"psql",title:"Query output straight to CSV (--csv)",cmd:String.raw`psql -X -h db.example.com -U app -d shop --csv -c "SELECT id, amt FROM sales.orders LIMIT 100" -o orders.csv`,p:"Quick CSV with headers from any query (psql 12+).",w:"Add -t to drop the header row; -o overwrites the file.",load:["psql",{X:true,csv:true,c:"SELECT id, amt FROM sales.orders LIMIT 100",o:"orders.csv"}]},
+ {tool:"psql",title:"Connection test",cmd:String.raw`pg_isready -h db.example.com -p 5432
+psql -X -h db.example.com -U app -d shop -c "SELECT current_user, inet_server_addr(), version()"`,p:"Is the server up, and can I log in as this user?",w:"pg_isready only checks the server accepts connections — not your credentials.",load:["psql",{X:true,c:"SELECT current_user, inet_server_addr(), version()"}]},
+ {tool:"query",title:"Database sizes",cmd:String.raw`SELECT datname, pg_size_pretty(pg_database_size(datname)) AS size
+FROM pg_database WHERE datallowconn
+ORDER BY pg_database_size(datname) DESC;`,p:"Which databases take the most space.",w:"Includes indexes and TOAST; doesn't show bloat separately.",load:["psql",{X:true,c:"SELECT datname, pg_size_pretty(pg_database_size(datname)) AS size FROM pg_database WHERE datallowconn ORDER BY pg_database_size(datname) DESC;"}]},
+ {tool:"query",title:"Top 20 biggest tables",cmd:String.raw`SELECT n.nspname || '.' || c.relname AS table_name,
+       pg_size_pretty(pg_total_relation_size(c.oid)) AS total,
+       pg_size_pretty(pg_relation_size(c.oid))       AS heap,
+       pg_size_pretty(pg_indexes_size(c.oid))        AS indexes
+FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind IN ('r','p','m') AND n.nspname NOT IN ('pg_catalog','information_schema')
+ORDER BY pg_total_relation_size(c.oid) DESC LIMIT 20;`,p:"Table + index + TOAST size per table.",w:"For partitioned tables the parent shows 0 — look at the partitions."},
+ {tool:"query",title:"Long-running queries",cmd:String.raw`SELECT pid, usename, datname, state, now() - xact_start AS xact_age,
+       now() - query_start AS query_age, wait_event_type, left(query, 120) AS query
+FROM pg_stat_activity
+WHERE state <> 'idle' AND pid <> pg_backend_pid()
+  AND now() - query_start > interval '5 minutes'
+ORDER BY query_start;`,p:"Find queries running longer than 5 minutes.",w:"Also watch 'idle in transaction' sessions — they block vacuum."},
+ {tool:"query",title:"Blocking sessions (and how to stop them)",cmd:String.raw`SELECT a.pid AS blocked_pid, a.usename, left(a.query, 60) AS blocked_query,
+       b.pid AS blocking_pid, b.usename AS blocking_user, b.state, left(b.query, 60) AS blocking_query
+FROM pg_stat_activity a
+JOIN LATERAL unnest(pg_blocking_pids(a.pid)) AS bp(pid) ON true
+JOIN pg_stat_activity b ON b.pid = bp.pid;
+-- then, gently first:  SELECT pg_cancel_backend(<blocking_pid>);
+-- if needed:           SELECT pg_terminate_backend(<blocking_pid>);`,p:"Who is blocking whom, then cancel or terminate the blocker.",w:"Terminating rolls back the blocker's whole transaction. Try pg_cancel_backend first."},
+ {tool:"psql",title:"Live monitor with \\watch",cmd:String.raw`-- inside psql:
+SELECT state, count(*) FROM pg_stat_activity GROUP BY state \watch 5`,p:"Re-run a query every 5 seconds — like top for your database.",w:"Ctrl+C to stop. PG16+ psql also accepts \\watch i=5 c=10 to stop after 10 runs."},
+ {tool:"psql",title:"Generate & run statements with \\gexec",cmd:String.raw`-- inside psql: ANALYZE every table in schema sales
+SELECT format('ANALYZE %I.%I', schemaname, relname)
+FROM pg_stat_user_tables WHERE schemaname = 'sales' \gexec`,p:"Build SQL from a query and execute each row as a statement.",w:"Preview without \\gexec first — it runs whatever the query produces."}
+];
+const TOOLS=["all","pg_dump","pg_restore","psql","pg_dumpall","query"];let rtool="all";
+$("#chips").innerHTML=TOOLS.map(t=>`<button class="chip" aria-pressed="${t==="all"}" data-tool="${t}">${t==="query"?"sql queries":t}</button>`).join("");
+$("#chips").addEventListener("click",e=>{const t=e.target.dataset.tool;if(!t)return;rtool=t;document.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c.dataset.tool===t));renderCards();});
+$("#rq").addEventListener("input",renderCards);
+function renderCards(){const q=$("#rq").value.toLowerCase().trim();
+ const rs=R.map((r,i)=>[r,i]).filter(([r])=>(rtool==="all"||r.tool===rtool)&&(!q||(r.title+" "+r.cmd+" "+r.p+" "+r.w+" "+r.tool).toLowerCase().includes(q)));
+ $("#rcount").textContent=rs.length+" of "+R.length+" recipes";
+ $("#cards").innerHTML=rs.map(([r,i])=>`<article class="card"><div><span class="tag">${esc(r.tool==="query"?"sql":r.tool)}</span></div><h4>${esc(r.title)}</h4><p class="purpose">${esc(r.p)}</p><pre>${esc(r.cmd)}</pre><p class="watch">${esc(r.w)}</p><div class="acts"><button class="small" data-copy="${i}" aria-label="Copy: ${esc(r.title)}">Copy</button>${r.load?`<button class="small primary" data-load="${i}" aria-label="Load into builder: ${esc(r.title)}">Load into builder</button>`:""}</div></article>`).join("")||'<p class="tip">No recipes match.</p>';}
+$("#cards").addEventListener("click",e=>{const d=e.target.dataset;if(d.copy)copy(R[d.copy].cmd);if(d.load){const[t,vals]=R[d.load].load;tab=t;st[t]=Object.assign(defaults(allFields(t)),vals);if(!conn.db)conn.db="shop";renderConn();renderPanel();$("#builder").scrollIntoView({behavior:"smooth"});toast("Loaded into "+t+" — your connection is kept");}});
+
+renderConn();renderProfiles();renderPanel();renderCards();
+</script>
+</body>
+</html>
