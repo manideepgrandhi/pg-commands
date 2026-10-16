@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pgc-version" content="2.1">
+<meta name="pgc-version" content="2.2">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>pg-commands · pg_dump, pg_restore & psql builder</title>
 <meta name="description" content="Interactive command builder and recipes for pg_dump, pg_restore and psql. Runs fully in your browser.">
@@ -85,6 +85,8 @@ pre.sqlout{max-height:420px;overflow:auto;font-size:13px}
 .tablewrap{overflow-x:auto}table.model{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}table.model th,table.model td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}table.model thead th{background:var(--panel2);color:var(--blue)}table.model tbody th{white-space:nowrap}
 @media (max-width:640px){table.model thead{display:none}table.model,table.model tbody,table.model tr,table.model th,table.model td{display:block;width:100%}table.model tr{margin-bottom:8px}table.model tbody th{white-space:normal;background:var(--panel2)}}
 @media (max-width:640px){table.model thead{display:none}table.model,table.model tbody,table.model tr,table.model th,table.model td{display:block;width:100%}table.model tr{margin-bottom:8px}table.model tbody th{white-space:normal;background:var(--panel2)}}
+.intro.loud{border-left:4px solid var(--amber);background:#2a2312;padding:8px 10px;border-radius:4px;color:var(--fg);font-size:13.5px}
+fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
 </style>
 </head>
 <body>
@@ -92,7 +94,7 @@ pre.sqlout{max-height:420px;overflow:auto;font-size:13px}
   <a class="logo" href="#top">pg<span>-commands</span></a>
   <span class="tagline">pg_dump · pg_restore · psql builder &amp; recipes — PostgreSQL 13–17</span>
   <nav aria-label="Main">
-    <a href="#builder">Builder</a><a href="#recipes">Recipes</a><a href="#security">Security</a><a href="#sample">Sample data</a><a href="#profiles">Profiles</a>
+    <a href="#builder">Builder</a><a href="#recipes">Recipes</a><a href="#security">Security</a><a href="#admin">Admin tools</a><a href="#sample">Sample data</a><a href="#profiles">Profiles</a>
     <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">Wrappers ↗</a>
   </nav>
 </div></header>
@@ -205,6 +207,12 @@ pre.sqlout{max-height:420px;overflow:auto;font-size:13px}
 <div id="scards"></div>
 </section>
 
+<section id="admin" aria-labelledby="h-admin">
+<h2 id="h-admin">admin tools</h2>
+<p class="tip">Generators for day-to-day DBA work: default privileges, privilege audits, ownership fixes, dropping roles, login users and session/lock troubleshooting. Each one builds its script from the form; nothing runs from the page.</p>
+<div class="tabs" role="tablist" aria-label="Admin tool" id="attabs"></div>
+<div id="atpanel" role="tabpanel" class="panel"></div>
+</section>
 <section id="sample" aria-labelledby="h-demo">
 <h2 id="h-demo">sample data</h2>
 <div class="panel" id="dform">
@@ -225,7 +233,7 @@ pre.sqlout{max-height:420px;overflow:auto;font-size:13px}
 </main>
 <footer><div class="wrap">
   <strong>Also see:</strong> <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">pg-dump-wrapper</a> — Manideep's <code>pg_dump</code>/<code>psql</code> wrapper scripts for scheduled, logged backups and runs.<br>
-  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.1. Always review a command before running it, especially against production.
+  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.2. Always review a command before running it, especially against production.
 </div></footer>
 <div class="toast" id="toast" role="status"></div>
 
@@ -1447,6 +1455,465 @@ ALTER ROLE mydb_app_user IN DATABASE mydb SET search_path = app;
 -- then, in psql:  \password mydb_app_user`}];
 $("#rm-cards").innerHTML=RM_CARDS.map((c,i)=>cardHTML({title:c.title,p:c.p,w:c.w,code:c.sql,tags:[["role model"]],acts:`<button class="small" data-rmcopy="${i}" aria-label="Copy: ${esc(c.title)}">Copy</button>`})).join("");
 $("#rm-cards").addEventListener("click",e=>{const i=e.target.dataset.rmcopy;if(i!==undefined)copy(RM_CARDS[i].sql);});
+/* ---------- admin tools (v2.2) ---------- */
+const csvIds=s=>list(s);
+const roleList=a=>a.map(x=>x.toUpperCase()==="PUBLIC"?"PUBLIC":qi(x)).join(", ");
+const arrLit=a=>"ARRAY["+a.map(ql).join(", ")+"]::name[]";
+const DP_TYPES={TABLES:["SELECT","INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER","MAINTAIN"],SEQUENCES:["USAGE","SELECT","UPDATE"],FUNCTIONS:["EXECUTE"],TYPES:["USAGE"],SCHEMAS:["USAGE","CREATE"]};
+const DP_DEF={TABLES:["SELECT"],SEQUENCES:["SELECT"],FUNCTIONS:[],TYPES:[],SCHEMAS:[]};
+const DEFACL_Q=g=>String.raw`SELECT pg_get_userbyid(d.defaclrole) AS grantor,
+       COALESCE(n.nspname, '(all schemas)') AS schema,
+       CASE d.defaclobjtype WHEN 'r' THEN 'tables' WHEN 'S' THEN 'sequences' WHEN 'f' THEN 'functions'
+                            WHEN 'T' THEN 'types' WHEN 'n' THEN 'schemas' END AS object_type,
+       CASE a.grantee WHEN 0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END AS grantee,
+       string_agg(a.privilege_type || CASE WHEN a.is_grantable THEN ' (grantable)' ELSE '' END, ', '
+                  ORDER BY a.privilege_type) AS privileges
+FROM pg_catalog.pg_default_acl d
+LEFT JOIN pg_catalog.pg_namespace n ON n.oid = d.defaclnamespace
+CROSS JOIN LATERAL aclexplode(d.defaclacl) AS a
+${g}GROUP BY 1, 2, 3, 4
+ORDER BY 1, 2, 3, 4;`;
+const SESS_BASE="COALESCE(a.backend_type, 'client backend') = 'client backend' AND a.usename IS NOT NULL AND a.pid <> pg_backend_pid()";
+const ADMIN_TOOLS=[
+{id:"defpriv",name:"Default privileges",intro:"⚠ Default privileges apply ONLY to objects created later BY the grantor role (FOR ROLE). Objects created by any other role, and objects that already exist, are not affected. Tick the companion option to GRANT on existing objects too.",
+ fields:[{k:"grantor",l:"Grantor role (FOR ROLE)",t:"text",def:"app_owner",tip:"The role that will create the objects (usually the schema owner)."},
+  {k:"targets",l:"Grant to role(s)",t:"text",def:"app_readonly",tip:"Comma-separated; PUBLIC allowed."},
+  {k:"schemas",l:"Schemas",t:"text",def:"app",tip:"Comma-separated. Leave empty for a global default (all schemas)."},
+  ...Object.keys(DP_TYPES).map(T=>({k:"p_"+T,l:T.toLowerCase()==="functions"?"functions / routines":T.toLowerCase(),t:"checks",opts:DP_TYPES[T],def:DP_DEF[T],tip:T==="TABLES"?"MAINTAIN is PostgreSQL 17+.":T==="SCHEMAS"?"Always global: can't be limited to a schema.":T==="FUNCTIONS"?"Covers procedures too.":""})),
+  {k:"existing",l:"Also GRANT on existing objects (… ON ALL … IN SCHEMA)",t:"check",def:true,tip:"Companion grants so today's objects match the defaults."}],
+ gen(v){const w=[],g=v.grantor.trim(),t=csvIds(v.targets),s=csvIds(v.schemas);
+  if(!g)w.push(["err","Enter the grantor role."]);if(!t.length)w.push(["err","Enter at least one target role."]);
+  const sel=Object.keys(DP_TYPES).filter(T=>v["p_"+T].length);if(!sel.length)w.push(["err","Tick at least one privilege."]);
+  if(w.length)return{w,outs:[]};
+  const fr=`FOR ROLE ${qi(g)}`,to=roleList(t),G=[],R=[],E=[];
+  sel.forEach(T=>{const p=v["p_"+T].join(", ");
+   if(T==="SCHEMAS"||!s.length){G.push(`ALTER DEFAULT PRIVILEGES ${fr} GRANT ${p} ON ${T} TO ${to};`);R.push(`ALTER DEFAULT PRIVILEGES ${fr} REVOKE ${p} ON ${T} FROM ${to};`);}
+   else s.forEach(x=>{G.push(`ALTER DEFAULT PRIVILEGES ${fr} IN SCHEMA ${qi(x)} GRANT ${p} ON ${T} TO ${to};`);R.push(`ALTER DEFAULT PRIVILEGES ${fr} IN SCHEMA ${qi(x)} REVOKE ${p} ON ${T} FROM ${to};`);});
+   if(v.existing)s.forEach(x=>{const X=qi(x);
+    if(T==="TABLES")E.push(`GRANT ${p} ON ALL TABLES IN SCHEMA ${X} TO ${to};`);
+    if(T==="SEQUENCES")E.push(`GRANT ${p} ON ALL SEQUENCES IN SCHEMA ${X} TO ${to};`);
+    if(T==="FUNCTIONS")E.push(`GRANT ${p} ON ALL ROUTINES IN SCHEMA ${X} TO ${to};`);
+    if(T==="SCHEMAS")E.push(`GRANT ${p} ON SCHEMA ${X} TO ${to};`);});});
+  if(v.p_TABLES.includes("MAINTAIN"))w.push(["warn","MAINTAIN only exists on PostgreSQL 17+; older servers reject the whole statement."]);
+  if(!s.length)w.push(["info","No schemas: these are global defaults (all schemas). A schema-level REVOKE can't remove a global default."]);
+  if(v.p_TYPES.length&&v.existing)w.push(["info","There is no GRANT … ON ALL TYPES: grant existing types one by one (types are USAGE to PUBLIC by default anyway)."]);
+  if(v.existing&&!s.length)w.push(["info","Companion grants need schemas, so none were generated."]);
+  if(sel.includes("FUNCTIONS"))w.push(["info","New functions are also executable by PUBLIC by default. Add a REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC default if you don't want that."]);
+  const hdr=`-- Run as ${g} or a member of it (RDS: GRANT ${qi(g)} TO <master user> first), in the target database.\n`;
+  return{w,outs:[{title:"grant script",file:"default_privileges_grant.sql",code:hdr+"BEGIN;\n"+G.join("\n")+(E.length?"\n\n-- existing objects (default privileges never touch these)\n"+E.join("\n"):"")+"\nCOMMIT;"},
+   {title:"revoke script",file:"default_privileges_revoke.sql",code:hdr+"BEGIN;\n"+R.join("\n")+"\nCOMMIT;"},
+   {title:"existing default ACLs",file:"default_acls.sql",code:DEFACL_Q(`WHERE d.defaclrole = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = ${ql(g)})\n`)}]};}},
+{id:"audit",name:"Privilege audit",intro:"Read-only queries; has_*_privilege() includes privileges inherited through role membership and grants to PUBLIC. Run them in the database you care about (tables, schemas and functions are per database).",
+ fields:[{k:"role",l:"Role",t:"text",def:"app_readonly",tip:"Whose access to check."},{k:"table",l:"Table",t:"text",def:"app.customers",tip:"schema.table for 'who can access'."},{k:"schemas",l:"Schemas (optional)",t:"text",def:"",tip:"Limit the role queries and default ACLs to these schemas."}],
+ gen(v){const w=[],r=v.role.trim(),s=csvIds(v.schemas),tb=v.table.trim();if(!r)w.push(["err","Enter a role."]);if(!tb)w.push(["err","Enter a table."]);if(w.length)return{w,outs:[]};
+  const R=ql(r),sf=s.length?`n.nspname = ANY (${arrLit(s)})`:`n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname !~ '^pg_toast'`;
+  return{w,outs:[
+  {title:"what the role can access",file:"role_access.sql",code:String.raw`-- tables, views, sequences
+SELECT CASE c.relkind WHEN 'S' THEN 'sequence' WHEN 'v' THEN 'view' WHEN 'm' THEN 'matview'
+                      WHEN 'f' THEN 'foreign table' ELSE 'table' END AS kind,
+       c.oid::regclass AS object,
+       concat_ws(', ', CASE WHEN c.relkind <> 'S' AND has_table_privilege(${R}, c.oid, 'SELECT') THEN 'SELECT' END,
+                       CASE WHEN c.relkind <> 'S' AND has_table_privilege(${R}, c.oid, 'INSERT') THEN 'INSERT' END,
+                       CASE WHEN c.relkind <> 'S' AND has_table_privilege(${R}, c.oid, 'UPDATE') THEN 'UPDATE' END,
+                       CASE WHEN c.relkind <> 'S' AND has_table_privilege(${R}, c.oid, 'DELETE') THEN 'DELETE' END,
+                       CASE WHEN c.relkind <> 'S' AND has_table_privilege(${R}, c.oid, 'TRUNCATE') THEN 'TRUNCATE' END,
+                       CASE WHEN c.relkind = 'S' AND has_sequence_privilege(${R}, c.oid, 'USAGE') THEN 'USAGE' END,
+                       CASE WHEN c.relkind = 'S' AND has_sequence_privilege(${R}, c.oid, 'SELECT') THEN 'SELECT' END,
+                       CASE WHEN c.relkind = 'S' AND has_sequence_privilege(${R}, c.oid, 'UPDATE') THEN 'UPDATE' END) AS privileges
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S') AND ${sf}
+  AND CASE WHEN c.relkind = 'S' THEN has_sequence_privilege(${R}, c.oid, 'USAGE, SELECT, UPDATE')
+           ELSE has_table_privilege(${R}, c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE') END
+ORDER BY 1, 2;
+
+-- functions and procedures (excluding extension members)
+SELECT p.oid::regprocedure AS routine, pg_get_userbyid(p.proowner) AS owner
+FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+WHERE ${sf} AND has_function_privilege(${R}, p.oid, 'EXECUTE')
+  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d
+                  WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')
+ORDER BY 1;
+
+-- schemas
+SELECT n.nspname AS schema, has_schema_privilege(${R}, n.oid, 'USAGE') AS usage,
+       has_schema_privilege(${R}, n.oid, 'CREATE') AS "create"
+FROM pg_catalog.pg_namespace n
+WHERE ${sf}
+ORDER BY 1;
+
+-- databases (cluster-wide)
+SELECT datname, has_database_privilege(${R}, datname, 'CONNECT') AS "connect",
+       has_database_privilege(${R}, datname, 'CREATE') AS "create",
+       has_database_privilege(${R}, datname, 'TEMP') AS "temp"
+FROM pg_catalog.pg_database WHERE NOT datistemplate
+ORDER BY 1;`},
+  {title:"who can access the table",file:"table_access.sql",code:String.raw`-- effective access per role (includes membership and PUBLIC)
+SELECT r.rolname, r.rolcanlogin AS can_login,
+       concat_ws(', ', CASE WHEN has_table_privilege(r.oid, t.oid, 'SELECT') THEN 'SELECT' END,
+                       CASE WHEN has_table_privilege(r.oid, t.oid, 'INSERT') THEN 'INSERT' END,
+                       CASE WHEN has_table_privilege(r.oid, t.oid, 'UPDATE') THEN 'UPDATE' END,
+                       CASE WHEN has_table_privilege(r.oid, t.oid, 'DELETE') THEN 'DELETE' END,
+                       CASE WHEN has_table_privilege(r.oid, t.oid, 'TRUNCATE') THEN 'TRUNCATE' END) AS privileges,
+       r.rolsuper OR r.rolbypassrls AS bypasses_rls
+FROM pg_catalog.pg_roles r
+CROSS JOIN (SELECT ${ql(tb)}::regclass::oid AS oid) AS t
+WHERE r.rolname !~ '^pg_'
+  AND has_table_privilege(r.oid, t.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE')
+ORDER BY 1;
+
+-- the table's own ACL (direct grants only)
+SELECT CASE a.grantee WHEN 0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END AS grantee,
+       pg_get_userbyid(a.grantor) AS grantor,
+       string_agg(a.privilege_type, ', ' ORDER BY a.privilege_type) AS privileges
+FROM pg_catalog.pg_class c
+CROSS JOIN LATERAL aclexplode(COALESCE(c.relacl, acldefault('r', c.relowner))) AS a
+WHERE c.oid = ${ql(tb)}::regclass
+GROUP BY 1, 2 ORDER BY 1;`},
+  {title:"role membership tree",file:"role_tree.sql",code:String.raw`-- roles ${r} belongs to (upwards), with the path
+WITH RECURSIVE up AS (
+  SELECT r.oid, r.rolname::text AS path, 0 AS depth, ARRAY[r.oid] AS seen
+  FROM pg_catalog.pg_roles r WHERE r.rolname = ${R}
+  UNION ALL
+  SELECT m.roleid, up.path || ' -> ' || pg_get_userbyid(m.roleid), up.depth + 1, up.seen || m.roleid
+  FROM up JOIN pg_catalog.pg_auth_members m ON m.member = up.oid
+  WHERE m.roleid <> ALL (up.seen)
+)
+SELECT depth, path FROM up ORDER BY path;
+
+-- roles that are members of ${r} (downwards)
+WITH RECURSIVE down AS (
+  SELECT r.oid, r.rolname::text AS path, 0 AS depth, ARRAY[r.oid] AS seen
+  FROM pg_catalog.pg_roles r WHERE r.rolname = ${R}
+  UNION ALL
+  SELECT m.member, down.path || ' <- ' || pg_get_userbyid(m.member), down.depth + 1, down.seen || m.member
+  FROM down JOIN pg_catalog.pg_auth_members m ON m.roleid = down.oid
+  WHERE m.member <> ALL (down.seen)
+)
+SELECT depth, path FROM down ORDER BY path;`},
+  {title:"default ACLs per schema",file:"default_acls_by_schema.sql",code:DEFACL_Q(s.length?`WHERE n.nspname = ANY (${arrLit(s)}) OR d.defaclnamespace = 0\n`:"")},
+  {title:"objects owned by the role",file:"owned_by_role.sql",code:String.raw`-- run in each database; databases are listed cluster-wide
+SELECT 'database' AS kind, datname::text AS object FROM pg_catalog.pg_database WHERE datdba = ${R}::regrole
+UNION ALL
+SELECT 'schema', quote_ident(nspname) FROM pg_catalog.pg_namespace WHERE nspowner = ${R}::regrole
+UNION ALL
+SELECT CASE c.relkind WHEN 'S' THEN 'sequence' WHEN 'v' THEN 'view' WHEN 'm' THEN 'matview' WHEN 'i' THEN 'index'
+                      WHEN 'I' THEN 'index' WHEN 'f' THEN 'foreign table' WHEN 'c' THEN 'composite type' ELSE 'table' END,
+       c.oid::regclass::text
+FROM pg_catalog.pg_class c WHERE c.relowner = ${R}::regrole AND c.relkind <> 't'
+UNION ALL
+SELECT 'routine', p.oid::regprocedure::text FROM pg_catalog.pg_proc p WHERE p.proowner = ${R}::regrole
+UNION ALL
+SELECT 'type', t.oid::regtype::text FROM pg_catalog.pg_type t
+WHERE t.typowner = ${R}::regrole AND t.typtype IN ('d', 'e', 'r')
+UNION ALL
+SELECT 'extension', extname::text FROM pg_catalog.pg_extension WHERE extowner = ${R}::regrole
+ORDER BY 1, 2;`}]};}},
+{id:"owner",name:"Ownership fixer",intro:"Hands every object in the chosen schemas to one owner, one ALTER … OWNER at a time. Extension members and column-owned sequences (serial/identity, which follow their table) are skipped. Anything it isn't allowed to change is reported and skipped. Safe to re-run.",
+ fields:[{k:"schemas",l:"Schemas",t:"text",def:"app",tip:"Comma-separated."},{k:"owner",l:"New owner",t:"text",def:"app_owner",tip:"Needs CREATE on the schema; you must be able to SET ROLE to it."},
+  {k:"schema",l:"Also change the schema owner",t:"check",def:true,tip:"ALTER SCHEMA … OWNER TO."},{k:"from",l:"REASSIGN OWNED: old owner (optional)",t:"text",def:"",tip:"Fill in to also get the REASSIGN OWNED alternative."}],
+ gen(v){const w=[],s=csvIds(v.schemas),o=v.owner.trim();if(!s.length)w.push(["err","Enter at least one schema."]);if(!o)w.push(["err","Enter the new owner."]);if(w.length)return{w,outs:[]};
+  const A=arrLit(s),objs=String.raw`  SELECT 0 AS ord, 'SCHEMA' AS kind, quote_ident(n.nspname) AS ident, n.nspowner AS owner
+  FROM pg_catalog.pg_namespace n WHERE n.nspname = ANY (${A}) AND ${v.schema?"true":"false"}
+  UNION ALL
+  SELECT 1, CASE c.relkind WHEN 'v' THEN 'VIEW' WHEN 'm' THEN 'MATERIALIZED VIEW' WHEN 'S' THEN 'SEQUENCE'
+                           WHEN 'f' THEN 'FOREIGN TABLE' ELSE 'TABLE' END,
+         format('%I.%I', n.nspname, c.relname), c.relowner
+  FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = ANY (${A}) AND c.relkind IN ('r', 'p', 'v', 'm', 'S', 'f')
+    AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d
+                    WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid
+                      AND (d.deptype = 'e' OR (c.relkind = 'S' AND d.deptype IN ('a', 'i'))))
+  UNION ALL
+  SELECT 2, 'ROUTINE', p.oid::regprocedure::text, p.proowner
+  FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = ANY (${A})
+    AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d
+                    WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype IN ('e', 'i'))  -- extension members; range constructors
+  UNION ALL
+  SELECT 3, 'TYPE', format('%I.%I', n.nspname, t.typname), t.typowner
+  FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+  WHERE n.nspname = ANY (${A})
+    AND (t.typtype IN ('d', 'e', 'r')
+         OR (t.typtype = 'c' AND (SELECT c.relkind FROM pg_catalog.pg_class c WHERE c.oid = t.typrelid) = 'c'))
+    AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d
+                    WHERE d.classid = 'pg_type'::regclass AND d.objid = t.oid AND d.deptype = 'e')`;
+  const outs=[{title:"preview (read-only)",file:"ownership_preview.sql",code:`SELECT o.kind, o.ident AS object, pg_get_userbyid(o.owner) AS current_owner\nFROM (\n${objs}\n) AS o\nWHERE o.owner <> ${ql(o)}::regrole\nORDER BY o.ord, o.kind, o.ident;`},
+  {title:"fix script",file:"ownership_fix.sql",code:String.raw`-- Run in the target database as a superuser, or (RDS) as a user who is a member of the
+-- current owners AND of ${o}.
+\set ON_ERROR_STOP on
+DO $fix$
+DECLARE
+  _new     text := ${ql(o)};
+  _new_oid oid  := (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = ${ql(o)});
+  _o       record;
+  _done    int := 0;
+  _skipped int := 0;
+BEGIN
+  IF _new_oid IS NULL THEN
+    RAISE EXCEPTION 'Role % does not exist', _new;
+  END IF;
+  FOR _o IN
+    SELECT * FROM (
+${objs}
+    ) AS x
+    WHERE x.owner <> _new_oid
+    ORDER BY x.ord, x.kind, x.ident
+  LOOP
+    BEGIN
+      EXECUTE format('ALTER %s %s OWNER TO %I', _o.kind, _o.ident, _new);
+      RAISE NOTICE 'Owner changed: % % (was %)', lower(_o.kind), _o.ident, pg_get_userbyid(_o.owner);
+      _done := _done + 1;
+    EXCEPTION WHEN insufficient_privilege OR wrong_object_type THEN
+      RAISE NOTICE 'Skipped: % % - %', lower(_o.kind), _o.ident, SQLERRM;
+      _skipped := _skipped + 1;
+    END;
+  END LOOP;
+  RAISE NOTICE 'Ownership fixer done: % changed, % skipped', _done, _skipped;
+END
+$fix$;`}];
+  const f=v.from.trim();
+  if(f)outs.push({title:"alternative: REASSIGN OWNED",file:"reassign_owned.sql",code:`-- Caveats:
+--  * It changes EVERYTHING ${f} owns in the CURRENT database (all schemas, not just ${s.join(", ")}),
+--    plus databases/tablespaces it owns cluster-wide. Run it in every database where ${f} owns objects.
+--  * It can't be limited to a schema, and it fails on objects owned by system roles.
+--  * You need privileges on both roles (RDS: GRANT ${qi(f)}, ${qi(o)} TO <master user>).
+REASSIGN OWNED BY ${qi(f)} TO ${qi(o)};`});
+  return{w,outs};}},
+{id:"droprole",name:"Drop role safely",intro:"Find out what the role owns and has been granted. Then, in every database where it has objects or grants, hand them over and drop its grants, and finally drop the role. Ownership and grants are per database, so REASSIGN/DROP OWNED must run in each one.",
+ fields:[{k:"role",l:"Role to drop",t:"text",def:"old_user",tip:"Login or group role."},{k:"to",l:"Give its objects to",t:"text",def:"app_owner",tip:"Successor owner."},
+  {k:"dbs",l:"Databases to clean",t:"text",def:"postgres, appdb",tip:"Comma-separated. The preview lists the databases that need it."},{k:"kill",l:"Lock the role and end its sessions first",t:"check",def:true,tip:"ALTER ROLE … NOLOGIN + pg_terminate_backend."}],
+ gen(v){const w=[],r=v.role.trim(),t=v.to.trim(),d=csvIds(v.dbs);if(!r||!t)w.push(["err","Enter the role and its successor."]);if(r&&r===t)w.push(["err","Successor must be a different role."]);if(!d.length)w.push(["err","List at least one database."]);if(w.length)return{w,outs:[]};
+  const R=ql(r),rid=`(SELECT oid FROM pg_catalog.pg_roles WHERE rolname = ${R})`;
+  const per=db=>String.raw`
+\connect ${qi(db)}
+DO $drop$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = ${R}) THEN
+    RAISE NOTICE 'Database %: reassigning objects of % to %', current_database(), ${R}, ${ql(t)};
+    EXECUTE format('REASSIGN OWNED BY %I TO %I', ${R}, ${ql(t)});
+    EXECUTE format('DROP OWNED BY %I', ${R});        -- removes its remaining grants and default privileges
+  ELSE
+    RAISE NOTICE 'Role % does not exist, nothing to do in %', ${R}, current_database();
+  END IF;
+END
+$drop$;`;
+  return{w,outs:[{title:"preview (read-only, any database)",file:"drop_role_preview.sql",code:String.raw`SELECT 'database owner' AS what, datname::text AS detail
+FROM pg_catalog.pg_database WHERE datdba = ${rid}
+UNION ALL
+SELECT 'member of', pg_get_userbyid(roleid) FROM pg_catalog.pg_auth_members WHERE member = ${rid}
+UNION ALL
+SELECT 'has member', pg_get_userbyid(member) FROM pg_catalog.pg_auth_members WHERE roleid = ${rid}
+UNION ALL
+SELECT 'role setting', COALESCE(d.datname, '(all databases)') || ': ' || array_to_string(s.setconfig, ', ')
+FROM pg_catalog.pg_db_role_setting s LEFT JOIN pg_catalog.pg_database d ON d.oid = s.setdatabase
+WHERE s.setrole = ${rid}
+UNION ALL
+SELECT 'objects/grants in database',
+       COALESCE(d.datname, '(shared objects)') || ': ' || count(*) || ' (' ||
+       string_agg(DISTINCT CASE s.deptype WHEN 'o' THEN 'owner' WHEN 'a' THEN 'privileges'
+                                          WHEN 'r' THEN 'policy' WHEN 'i' THEN 'initial privileges'
+                                          ELSE s.deptype::text END, ', ') || ')'
+FROM pg_catalog.pg_shdepend s LEFT JOIN pg_catalog.pg_database d ON d.oid = s.dbid
+WHERE s.refclassid = 'pg_authid'::regclass AND s.refobjid = ${rid}
+GROUP BY d.datname
+UNION ALL
+SELECT 'active sessions', count(*)::text FROM pg_catalog.pg_stat_activity WHERE usename = ${R}
+ORDER BY 1, 2;`},
+  {title:"drop script (psql)",file:"drop_role.sql",code:String.raw`-- Run with psql as a superuser or (RDS) the master user, who needs ADMIN on ${r}
+-- and the privileges of both roles; the script grants them to itself when it can.
+\set ON_ERROR_STOP on
+DO $drop$
+DECLARE _x text;
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = ${R}) THEN
+    -- REASSIGN OWNED needs the privileges of both roles (RDS master user: not automatic)
+    FOREACH _x IN ARRAY ARRAY[${R}, ${ql(t)}] LOOP
+      IF NOT pg_has_role(current_user, _x, 'USAGE') THEN
+        RAISE NOTICE 'Granting % to % so it can reassign objects', _x, current_user;
+        EXECUTE format('GRANT %I TO %I', _x, current_user);
+      END IF;
+    END LOOP;${v.kill?String.raw`
+    EXECUTE format('ALTER ROLE %I NOLOGIN', ${R});
+    PERFORM pg_terminate_backend(pid) FROM pg_catalog.pg_stat_activity
+     WHERE usename = ${R} AND pid <> pg_backend_pid();
+    RAISE NOTICE 'Locked % and ended its sessions', ${R};`:""}
+  END IF;
+END
+$drop$;
+${d.map(per).join("\n")}
+
+-- memberships (DROP ROLE removes them too; this just logs each one), then the role
+DO $drop$
+DECLARE _m record;
+BEGIN
+  FOR _m IN SELECT pg_get_userbyid(roleid) AS grp, pg_get_userbyid(member) AS mem
+            FROM pg_catalog.pg_auth_members
+            WHERE member = ${rid} OR roleid = ${rid}
+  LOOP
+    BEGIN
+      EXECUTE format('REVOKE %I FROM %I', _m.grp, _m.mem);
+      RAISE NOTICE 'Revoked % from %', _m.grp, _m.mem;
+    EXCEPTION WHEN insufficient_privilege THEN
+      RAISE NOTICE 'Could not revoke % from % (%), DROP ROLE will remove it', _m.grp, _m.mem, SQLERRM;
+    END;
+  END LOOP;
+END
+$drop$;
+DROP ROLE IF EXISTS ${qi(r)};`}]};}},
+{id:"login",name:"Login user setup",intro:"Creates or updates a login user, idempotently: no password is ever written into the script. It adds membership in a role-model role, plus a connection limit and per-user safety timeouts.",
+ fields:[{k:"user",l:"Login user",t:"text",def:"alice",tip:"The person or service account."},
+  {k:"member",l:"Member of",t:"select",def:"app",opts:[["reader","reader role (from role model)"],["writer","writer role (from role model)"],["app","app_user role (from role model)"],["","none"]],tip:"Uses the names in the role model generator above."},
+  {k:"extra",l:"Extra roles (optional)",t:"text",def:"",tip:"Comma-separated, e.g. pg_read_all_stats."},
+  {k:"valid",l:"Password valid until (optional)",t:"text",def:"",ph:"2026-12-31",tip:"YYYY-MM-DD; empty = no expiry."},
+  {k:"limit",l:"Connection limit",t:"number",def:"10",tip:"-1 = unlimited."},
+  {k:"db",l:"Settings apply in database (optional)",t:"text",def:"mydb",tip:"ALTER ROLE … IN DATABASE; empty = all databases."},
+  {k:"st",l:"statement_timeout",t:"text",def:"5min",tip:"e.g. 30s, 5min; empty = leave as is."},
+  {k:"idle",l:"idle_in_transaction_session_timeout",t:"text",def:"10min",tip:"Kills sessions left idle inside a transaction."},
+  {k:"lock",l:"lock_timeout",t:"text",def:"30s",tip:"Give up waiting for a lock after this long."},
+  {k:"sp",l:"search_path",t:"text",def:"public",tip:"Comma-separated schemas; empty = leave as is."}],
+ gen(v){const w=[],u=v.user.trim();if(!u)w.push(["err","Enter the login user."]);if(/^pg_/i.test(u))w.push(["err","Names starting with pg_ are reserved."]);
+  const dur=/^\d+(\s*(ms|s|min|h|d))?$/;["st","idle","lock"].forEach(k=>{if(v[k].trim()&&!dur.test(v[k].trim()))w.push(["err",`${k==="st"?"statement_timeout":k==="idle"?"idle_in_transaction_session_timeout":"lock_timeout"}: use a number with ms, s, min, h or d.`]);});
+  if(v.valid.trim()&&!/^\d{4}-\d{2}-\d{2}( [0-9:]+)?$/.test(v.valid.trim()))w.push(["err","Valid until: use YYYY-MM-DD."]);
+  const lim=parseInt(v.limit,10);if(v.limit!==""&&(!Number.isFinite(lim)||lim<-1))w.push(["err","Connection limit must be -1 or more."]);
+  if(w.length)return{w,outs:[]};
+  const rm=rmVals(),nm=x=>x.replace(/\{db\}/g,rm.db||"mydb"),grp=v.member?nm({reader:rm.reader,writer:rm.writer,app:rm.app}[v.member]):"";
+  const roles=[grp,...csvIds(v.extra)].filter(Boolean),U=ql(u),ind=v.db.trim()?` IN DATABASE ${qi(v.db.trim())}`:"";
+  const sets=[["statement_timeout",v.st],["idle_in_transaction_session_timeout",v.idle],["lock_timeout",v.lock]].filter(x=>x[1].trim()).map(([k,x])=>`ALTER ROLE ${qi(u)}${ind} SET ${k} = ${ql(x.trim().replace(/\s+/g,""))};`);
+  const sp=csvIds(v.sp);if(sp.length)sets.push(`ALTER ROLE ${qi(u)}${ind} SET search_path = ${sp.map(qi).join(", ")};`);
+  if(v.member)w.push(["info",`Member of ${grp} (name taken from the role model generator).`]);
+  return{w,outs:[{title:"login user script",file:"login_user.sql",code:String.raw`-- Run as a superuser or a CREATEROLE admin (RDS master user).
+\set ON_ERROR_STOP on
+DO $login$
+DECLARE _r text;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = ${U}) THEN
+    RAISE NOTICE 'Creating login user: %', ${U};
+    EXECUTE format('CREATE ROLE %I LOGIN INHERIT', ${U});
+  ELSE
+    RAISE NOTICE 'User already exists, updating: %', ${U};
+    EXECUTE format('ALTER ROLE %I LOGIN INHERIT', ${U});
+  END IF;
+  EXECUTE format('ALTER ROLE %I CONNECTION LIMIT %s', ${U}, ${Number.isFinite(lim)?lim:-1});
+  EXECUTE format('ALTER ROLE %I VALID UNTIL %L', ${U}, ${ql(v.valid.trim()?v.valid.trim():"infinity")});
+  FOREACH _r IN ARRAY ARRAY[${roles.map(ql).join(", ")}]::text[] LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = _r) THEN
+      RAISE EXCEPTION 'Role % does not exist - create it first (role model generator)', _r;
+    ELSIF pg_has_role(${U}, _r, 'MEMBER') THEN
+      RAISE NOTICE '% is already a member of %', ${U}, _r;
+    ELSE
+      RAISE NOTICE 'Granting % to %', _r, ${U};
+      EXECUTE format('GRANT %I TO %I', _r, ${U});
+    END IF;
+  END LOOP;
+END
+$login$;
+${sets.join("\n")}
+
+-- verify
+SELECT r.rolname, r.rolcanlogin, r.rolconnlimit, r.rolvaliduntil,
+       ARRAY(SELECT pg_get_userbyid(m.roleid) FROM pg_catalog.pg_auth_members m WHERE m.member = r.oid) AS member_of,
+       (SELECT array_agg(COALESCE(d.datname, '*') || ': ' || array_to_string(s.setconfig, ', '))
+        FROM pg_catalog.pg_db_role_setting s LEFT JOIN pg_catalog.pg_database d ON d.oid = s.setdatabase
+        WHERE s.setrole = r.oid) AS settings
+FROM pg_catalog.pg_roles r WHERE r.rolname = ${U};
+
+-- set the password interactively (never in a file):  \password ${u}`}]};}},
+{id:"sessions",name:"Sessions & locks",intro:"Find slow, idle-in-transaction and blocking sessions, then cancel or terminate them with filters that always skip your own session and non-client backends.",
+ fields:[{k:"min",l:"Threshold (minutes)",t:"number",def:"5",tip:"For long-running, idle-in-transaction and the age filter."},
+  {k:"user",l:"Filter: user",t:"text",def:"",tip:"usename = …"},{k:"app",l:"Filter: application_name",t:"text",def:"",tip:"application_name = …"},{k:"db",l:"Filter: database",t:"text",def:"",tip:"datname = …"},
+  {k:"state",l:"Filter: state",t:"select",def:"",opts:[["","any"],["active","active"],["idle in transaction","idle in transaction"],["idle","idle"]],tip:"Session state."},
+  {k:"action",l:"Action",t:"select",def:"cancel",opts:[["cancel","pg_cancel_backend: cancel the query"],["terminate","pg_terminate_backend: end the session"]],tip:"Cancel first; terminate rolls back the whole transaction and disconnects."}],
+ gen(v){const w=[],m=Math.max(0,parseInt(v.min,10)||0),iv=`interval '${m} minutes'`;
+  const f=[SESS_BASE,"a.usename IS DISTINCT FROM 'rdsadmin'"];if(v.user.trim())f.push(`a.usename = ${ql(v.user.trim())}`);if(v.app.trim())f.push(`a.application_name = ${ql(v.app.trim())}`);if(v.db.trim())f.push(`a.datname = ${ql(v.db.trim())}`);if(v.state)f.push(`a.state = ${ql(v.state)}`);
+  if(m)f.push(`now() - COALESCE(a.xact_start, a.query_start, a.backend_start) > ${iv}`);
+  if(!v.user.trim()&&!v.app.trim()&&!v.db.trim()&&!m)w.push(["err","No user/app/database filter and no age: the signal query would hit every client session. Narrow it down."]);
+  if(v.action==="terminate")w.push(["warn","Terminate ends the session and rolls back its transaction. Try cancel first."]);
+  if(v.action==="cancel"&&v.state!=="active")w.push(["info","Cancel only stops a running query. It does nothing to an 'idle in transaction' session that holds locks; terminate that one."]);
+  w.push(["info","Without pg_read_all_stats (RDS master: granted via rds_superuser) other users' state, query and timestamps read as NULL, so the state and age filters won't match them."]);
+  const fn=v.action==="terminate"?"pg_terminate_backend":"pg_cancel_backend",W=f.join("\n  AND ");
+  return{w,outs:[{title:"active sessions",file:"sessions.sql",code:String.raw`SELECT a.pid, a.usename, a.datname, a.application_name, a.client_addr, a.state,
+       a.wait_event_type, a.wait_event, now() - a.backend_start AS conn_age,
+       now() - a.xact_start AS xact_age, now() - a.query_start AS query_age, left(a.query, 100) AS query
+FROM pg_catalog.pg_stat_activity a
+WHERE ${SESS_BASE}
+ORDER BY a.state, query_age DESC NULLS LAST;`},
+  {title:`long-running queries (> ${m} min)`,file:"long_running.sql",code:String.raw`SELECT a.pid, a.usename, a.datname, now() - a.query_start AS runtime, a.wait_event_type, a.wait_event,
+       left(a.query, 200) AS query
+FROM pg_catalog.pg_stat_activity a
+WHERE ${SESS_BASE} AND a.state = 'active' AND now() - a.query_start > ${iv}
+ORDER BY runtime DESC;`},
+  {title:`idle in transaction (> ${m} min)`,file:"idle_in_tx.sql",code:String.raw`SELECT a.pid, a.usename, a.datname, a.application_name, a.state,
+       now() - a.xact_start AS xact_age, now() - a.state_change AS idle_for, left(a.query, 120) AS last_query
+FROM pg_catalog.pg_stat_activity a
+WHERE ${SESS_BASE} AND a.state LIKE 'idle in transaction%' AND now() - a.state_change > ${iv}
+ORDER BY idle_for DESC;`},
+  {title:"blocking tree",file:"blocking_tree.sql",code:String.raw`WITH RECURSIVE tree AS (
+  -- roots: sessions that block someone but aren't blocked themselves
+  SELECT a.pid, a.pid AS root, 0 AS depth, ARRAY[a.pid] AS path
+  FROM pg_catalog.pg_stat_activity a
+  WHERE cardinality(pg_blocking_pids(a.pid)) = 0
+    AND EXISTS (SELECT 1 FROM pg_catalog.pg_stat_activity b WHERE a.pid = ANY (pg_blocking_pids(b.pid)))
+  UNION ALL
+  SELECT b.pid, t.root, t.depth + 1, t.path || b.pid
+  FROM tree t JOIN pg_catalog.pg_stat_activity b ON t.pid = ANY (pg_blocking_pids(b.pid))
+  WHERE b.pid <> ALL (t.path)
+)
+SELECT repeat('    ', t.depth) || t.pid AS pid_tree, a.usename, a.datname, a.state,
+       a.wait_event_type || ':' || a.wait_event AS waiting_on,
+       now() - a.xact_start AS xact_age, left(a.query, 80) AS query
+FROM tree t JOIN pg_catalog.pg_stat_activity a ON a.pid = t.pid
+ORDER BY t.root, t.path;`},
+  {title:"lock details",file:"locks.sql",code:String.raw`SELECT l.pid, a.usename, l.locktype, l.relation::regclass AS relation, l.mode, l.granted,
+       l.transactionid, l.virtualxid, pg_blocking_pids(l.pid) AS blocked_by,
+       now() - a.query_start AS query_age, left(a.query, 60) AS query
+FROM pg_catalog.pg_locks l
+JOIN pg_catalog.pg_stat_activity a ON a.pid = l.pid
+WHERE l.pid <> pg_backend_pid()
+  AND (l.database IS NULL OR l.database = (SELECT oid FROM pg_catalog.pg_database WHERE datname = current_database()))
+  AND (NOT l.granted OR l.locktype IN ('relation', 'transactionid', 'tuple'))
+ORDER BY l.granted, l.pid, l.relation;`},
+  {title:`${v.action} matching sessions: preview, then signal`,file:"signal_sessions.sql",code:String.raw`-- 1. preview who matches
+SELECT a.pid, a.usename, a.datname, a.application_name, a.state,
+       now() - COALESCE(a.xact_start, a.query_start, a.backend_start) AS age, left(a.query, 80) AS query
+FROM pg_catalog.pg_stat_activity a
+WHERE ${W}
+ORDER BY age DESC;
+
+-- 2. then signal them (${fn})
+SELECT a.pid, a.usename, ${fn}(a.pid) AS signalled
+FROM pg_catalog.pg_stat_activity a
+WHERE ${W};
+
+-- Permissions: superusers can signal anyone. Other roles can signal their own sessions,
+-- and members of pg_signal_backend can signal any non-superuser session.
+-- RDS/Aurora: the master user (rds_superuser) can signal every session except rdsadmin's.`}]};}}
+];
+/* rendering */
+const atState={};ADMIN_TOOLS.forEach(t=>{atState[t.id]={};t.fields.forEach(f=>atState[t.id][f.k]=f.def!==undefined?(Array.isArray(f.def)?[...f.def]:f.def):(f.t==="check"?false:""));});
+let atTab="defpriv";
+function atField(t,f){const id=`at-${t.id}-${f.k}`,val=atState[t.id][f.k],tip=f.tip?`<div class="tip" id="${id}-tip">${esc(f.tip)}</div>`:"";
+ if(f.t==="check")return`<div class="check"><input type="checkbox" id="${id}" data-at="${f.k}" ${val?"checked":""} aria-describedby="${id}-tip"><div><label for="${id}" class="mono" style="font-size:13px">${esc(f.l)}</label>${tip}</div></div>`;
+ if(f.t==="checks")return`<fieldset class="privset"><legend>${esc(f.l)}</legend><div class="chips">${f.opts.map(o=>`<label class="check" style="align-items:center"><input type="checkbox" data-at="${f.k}" data-opt="${o}" ${val.includes(o)?"checked":""}> <span class="mono" style="font-size:12.5px">${o}</span></label>`).join(" ")}</div>${f.tip?`<div class="tip">${esc(f.tip)}</div>`:""}</fieldset>`;
+ const inp=f.t==="select"?`<select id="${id}" data-at="${f.k}" aria-describedby="${id}-tip">${f.opts.map(o=>`<option value="${esc(o[0])}" ${o[0]===val?"selected":""}>${esc(o[1])}</option>`).join("")}</select>`
+  :`<input type="${f.t==="number"?"number":"text"}" id="${id}" data-at="${f.k}" value="${esc(val)}" placeholder="${esc(f.ph||"")}" autocomplete="off" spellcheck="false" aria-describedby="${id}-tip">`;
+ return`<div class="field"><label for="${id}">${esc(f.l)}</label>${inp}${tip}</div>`;}
+function atRender(){const t=ADMIN_TOOLS.find(x=>x.id===atTab);
+ document.querySelectorAll("#attabs button").forEach(b=>{const on=b.dataset.tool===atTab;b.setAttribute("aria-selected",on);b.tabIndex=on?0:-1;});
+ $("#atpanel").setAttribute("aria-labelledby","attab-"+atTab);
+ $("#atpanel").innerHTML=`<p class="tip intro${t.id==="defpriv"?" loud":""}">${esc(t.intro)}</p><div class="grid">${t.fields.map(f=>atField(t,f)).join("")}</div><div class="warns" id="atwarn" aria-live="polite"></div><div id="atouts"></div>`;atUpdate();}
+function atUpdate(){const t=ADMIN_TOOLS.find(x=>x.id===atTab);const r=t.gen(atState[t.id]);window._atOut=r.outs;
+ $("#atwarn").innerHTML=r.w.map(([l,m])=>`<div class="warn ${l==="err"?"err":l==="info"?"info":""}">${l==="err"?"✖":l==="info"?"ℹ":"⚠"} ${esc(m)}</div>`).join("");
+ $("#atouts").innerHTML=r.outs.map((o,i)=>`<div class="term" style="margin-top:10px"><div class="termbar"><span class="mono tip">${esc(o.title)}</span><span class="sp"></span><button class="small" data-atdl="${i}" aria-label="Download ${esc(o.file)}">Download</button><button class="small primary" data-atcopy="${i}" aria-label="Copy ${esc(o.title)}">Copy</button></div><pre class="cmd sqlout">${esc(o.code)}</pre></div>`).join("");}
+$("#attabs").innerHTML=ADMIN_TOOLS.map(t=>`<button role="tab" id="attab-${t.id}" data-tool="${t.id}" aria-controls="atpanel">${esc(t.name)}</button>`).join("");
+$("#attabs").addEventListener("click",e=>{const id=e.target.dataset.tool;if(id){atTab=id;atRender();}});
+$("#attabs").addEventListener("keydown",e=>{const ids=ADMIN_TOOLS.map(t=>t.id);let i=ids.indexOf(atTab);if(e.key==="ArrowRight")i=(i+1)%ids.length;else if(e.key==="ArrowLeft")i=(i+ids.length-1)%ids.length;else return;atTab=ids[i];atRender();document.getElementById("attab-"+atTab).focus();});
+function atInput(e){const el=e.target,k=el.dataset.at;if(!k)return;const s=atState[atTab];
+ if(el.dataset.opt){const a=new Set(s[k]);el.checked?a.add(el.dataset.opt):a.delete(el.dataset.opt);const f=ADMIN_TOOLS.find(x=>x.id===atTab).fields.find(x=>x.k===k);s[k]=f.opts.filter(o=>a.has(o));}
+ else s[k]=el.type==="checkbox"?el.checked:el.value;atUpdate();}
+$("#atpanel").addEventListener("input",atInput);$("#atpanel").addEventListener("change",atInput);
+$("#atpanel").addEventListener("click",e=>{const d=e.target.dataset;if(d.atcopy!==undefined)copy(window._atOut[d.atcopy].code);if(d.atdl!==undefined){const o=window._atOut[d.atdl];download(o.file,o.code,"application/sql");}});
+$("#rolemodel").addEventListener("input",()=>{if(atTab==="login")atUpdate();});
+atRender();
 
 
 </script>

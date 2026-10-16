@@ -23,6 +23,13 @@ It's one self-contained `index.html` with no build step, no CDNs and no server, 
   - It works on RDS/Aurora when run as the master user. The script grants the owner role to that user.
   - It ends with a verification report: memberships, privileges on a rolled-back test table, and default ACLs.
   - Run it with `psql -h <host> -U <admin> -d postgres -v database_name=mydb -f role_model.sql`. The page also has three standalone cards (reader, writer, app_user).
+- **Admin tools (v2.2).** Six generators. Each builds its script from a form and has Copy and Download buttons; nothing runs from the page.
+  1. **Default privileges:** pick the grantor (FOR ROLE), target roles, schemas, and privileges per object type. It gives you the grant script, a revoke script and a query of the existing default ACLs, plus optional companion `GRANT … ON ALL … IN SCHEMA` for objects that already exist.
+  2. **Privilege audit:** what a role can access (tables, sequences, functions, schemas, databases; includes access through membership), who can access a table, the role membership tree up and down, default ACLs per schema, and objects owned by a role.
+  3. **Ownership fixer:** a preview, then a re-runnable script that changes the owner of each object in the chosen schemas (tables, views, matviews, sequences, routines, types, and the schema itself). It skips extension members and column-owned sequences. A `REASSIGN OWNED` alternative is included, with its caveats.
+  4. **Drop role safely:** a preview across databases, then a psql script that runs `REASSIGN OWNED` / `DROP OWNED` in each database, revokes memberships and runs `DROP ROLE IF EXISTS`. It works when run as the RDS master user.
+  5. **Login user setup:** an idempotent login user with no password in the script (use `\password`). It sets VALID UNTIL, a connection limit, membership in a role-model role, and per-user statement/idle/lock timeouts and search_path.
+  6. **Sessions & locks:** active sessions, long-running queries, idle-in-transaction sessions, the blocking tree from `pg_blocking_pids`, and lock details. It also generates `pg_cancel_backend` / `pg_terminate_backend` queries with safety filters.
 - **Sample data (v2).** A `demo` schema (customers, products, categories, orders, order_items) with PKs, FKs, CHECKs, indexes and JSONB. It loads data three ways (hand-written INSERTs, generate_series with configurable row counts, and `\copy` from a downloadable CSV) and has 12 practice queries: joins, GROUP BY/HAVING, window functions, CTEs, a recursive CTE, JSONB with a GIN index, EXPLAIN ANALYZE, a transaction with ROLLBACK, and upsert. Use **Download demo.sql** or *Copy all*, then run `psql -d mydb -v ON_ERROR_STOP=1 -f demo.sql`. The cleanup step (`DROP SCHEMA demo CASCADE`) is included but commented out.
 - **Connection profiles.** Saves name, host, port, user and database in localStorage, never passwords. You can export and import them as JSON.
 
@@ -34,5 +41,7 @@ Every builder combination, recipe, security item that can run locally, role buil
 ![Security](screenshots/desktop-security.png)
 
 ![Role model](screenshots/desktop-role-model.png)
+
+![Admin tools](screenshots/desktop-admin-defpriv.png)
 
 <img src="screenshots/mobile.png" alt="Mobile view" width="300">
