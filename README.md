@@ -14,6 +14,15 @@ It's one self-contained `index.html` with no build step, no CDNs and no server, 
 - **27 recipes.** Each has the command, its purpose and a "watch out" note, with Copy and *Load into builder*. You can search them and filter by tool.
 - **Security (v2).** 40 items in 6 categories: roles & users, audits, connections & SSL, row-level security, auditing & logging, and extras. Each has the SQL or command, its purpose, a "watch out" note and Copy, and you can search and filter them. RDS/Aurora differences are flagged: `rds_superuser`, `rds.force_ssl`, pgaudit via the parameter group, and pg_authid/pg_hba not being readable there.
 - **Security role builder.** Generates a read-only or read-write role script (idempotent CREATE ROLE, grants, default privileges, an optional login user and a verification query) for any role, database and schemas.
+- **Database role model generator (v2.1).** Builds a re-runnable psql script that creates a NOLOGIN owner (`{db}_owner`) and three access roles chained by membership: reader, then writer, then app_user.
+  - reader gets CONNECT, USAGE and SELECT. writer adds DML (TRUNCATE optional), sequence use and EXECUTE. app_user adds TEMP and is the role the app logs in as. None of them can run DDL.
+  - Default privileges cover new tables, sequences and functions that the owner creates later.
+  - It has create and extend modes. Extend mode hands existing objects in the managed schemas to the owner.
+  - Optional: revoke PUBLIC privileges, LOGIN for the three roles (no passwords), and TRUNCATE for writer.
+  - Safety: inputs come from psql variables, a `pg_temp.err()` check stops the script on bad input, and `ON_ERROR_STOP` is on. Roles and grants are created idempotently with a NOTICE for each step.
+  - It works on RDS/Aurora when run as the master user. The script grants the owner role to that user.
+  - It ends with a verification report: memberships, privileges on a rolled-back test table, and default ACLs.
+  - Run it with `psql -h <host> -U <admin> -d postgres -v database_name=mydb -f role_model.sql`. The page also has three standalone cards (reader, writer, app_user).
 - **Sample data (v2).** A `demo` schema (customers, products, categories, orders, order_items) with PKs, FKs, CHECKs, indexes and JSONB. It loads data three ways (hand-written INSERTs, generate_series with configurable row counts, and `\copy` from a downloadable CSV) and has 12 practice queries: joins, GROUP BY/HAVING, window functions, CTEs, a recursive CTE, JSONB with a GIN index, EXPLAIN ANALYZE, a transaction with ROLLBACK, and upsert. Use **Download demo.sql** or *Copy all*, then run `psql -d mydb -v ON_ERROR_STOP=1 -f demo.sql`. The cleanup step (`DROP SCHEMA demo CASCADE`) is included but commented out.
 - **Connection profiles.** Saves name, host, port, user and database in localStorage, never passwords. You can export and import them as JSON.
 
@@ -23,5 +32,7 @@ Every builder combination, recipe, security item that can run locally, role buil
 [pg-dump-wrapper](https://github.com/manideepgrandhi/pg-dump-wrapper): wrapper scripts for logged, scheduled pg_dump and psql runs.
 
 ![Security](screenshots/desktop-security.png)
+
+![Role model](screenshots/desktop-role-model.png)
 
 <img src="screenshots/mobile.png" alt="Mobile view" width="300">
