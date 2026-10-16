@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="pgc-version" content="2.0">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>pg-commands · pg_dump, pg_restore & psql builder</title>
 <meta name="description" content="Interactive command builder and recipes for pg_dump, pg_restore and psql. Runs fully in your browser.">
@@ -75,6 +76,12 @@ pre.cmd::before{content:"$ ";color:var(--muted)}
 footer{border-top:1px solid var(--line);margin-top:40px;padding:20px 0;color:var(--muted);font-size:13px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 @media (max-width:640px){.out{position:static}.cards{grid-template-columns:1fr}.grid{grid-template-columns:1fr}pre.cmd{font-size:13px}header nav{margin-left:0}}
+.cathead{margin:22px 0 0;color:var(--fg);font-size:13px}
+.tag.k-rds{color:#ffa657;border-color:#ffa657}.tag.k-shell{color:var(--green)}.tag.k-conf{color:#d2a8ff;border-color:#d2a8ff}.tag.k-danger{color:var(--red);border-color:var(--red)}
+.card.danger{border-color:var(--red)}
+pre.sqlout::before{content:""}
+pre.sqlout{max-height:420px;overflow:auto;font-size:13px}
+#dform .cmd::before{content:"$ ";color:var(--muted)}
 </style>
 </head>
 <body>
@@ -82,7 +89,7 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:20px 0;color:var
   <a class="logo" href="#top">pg<span>-commands</span></a>
   <span class="tagline">pg_dump · pg_restore · psql builder &amp; recipes — PostgreSQL 13–17</span>
   <nav aria-label="Main">
-    <a href="#builder">Builder</a><a href="#recipes">Recipes</a><a href="#profiles">Profiles</a>
+    <a href="#builder">Builder</a><a href="#recipes">Recipes</a><a href="#security">Security</a><a href="#sample">Sample data</a><a href="#profiles">Profiles</a>
     <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">Wrappers ↗</a>
   </nav>
 </div></header>
@@ -140,10 +147,51 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:20px 0;color:var
 <p class="tip" id="rcount"></p>
 <div class="cards" id="cards"></div>
 </section>
+<section id="security" aria-labelledby="h-sec">
+<h2 id="h-sec">security</h2>
+<p class="tip">Roles, audits, SSL, row-level security and logging for PostgreSQL 13–17. <span class="tag k-rds">RDS/Aurora</span> marks items that only apply there. On RDS the master user is a member of <code>rds_superuser</code>, not a real superuser, and server settings go in the parameter group.</p>
+<div class="panel" id="rolebuilder">
+  <h3>Security role builder</h3>
+  <div class="grid">
+    <div class="field"><label for="rb-type">Role type</label><select id="rb-type"><option value="ro">read-only (SELECT)</option><option value="rw">read-write (SELECT, INSERT, UPDATE, DELETE)</option></select><div class="tip">Read-write gets DML and sequence usage, but no DDL or TRUNCATE.</div></div>
+    <div class="field"><label for="rb-role">Group role name</label><input type="text" id="rb-role" value="app_readonly" autocomplete="off" spellcheck="false"><div class="tip">NOLOGIN role that holds the grants.</div></div>
+    <div class="field"><label for="rb-db">Database</label><input type="text" id="rb-db" value="appdb" autocomplete="off" spellcheck="false"><div class="tip">Gets GRANT CONNECT.</div></div>
+    <div class="field"><label for="rb-schemas">Schemas</label><input type="text" id="rb-schemas" value="app" autocomplete="off" spellcheck="false"><div class="tip">Comma-separated, e.g. app, reporting.</div></div>
+    <div class="field"><label for="rb-owner">Owner of future tables (optional)</label><input type="text" id="rb-owner" value="app_owner" autocomplete="off" spellcheck="false"><div class="tip">Used in ALTER DEFAULT PRIVILEGES FOR ROLE.</div></div>
+    <div class="field"><label for="rb-login">Login user to add (optional)</label><input type="text" id="rb-login" placeholder="alice" autocomplete="off" spellcheck="false"><div class="tip">Created without a password; set one with \password.</div></div>
+  </div>
+  <div class="term" style="margin-top:12px"><div class="termbar"><span class="mono tip">role.sql</span><span class="sp"></span><button class="small primary" id="rb-copy">Copy SQL</button></div><pre class="cmd sqlout" id="rb-out" aria-live="polite"></pre></div>
+  <div class="warns" id="rb-warn" aria-live="polite"></div>
+</div>
+<div class="row" style="margin-top:16px">
+  <div class="field" style="flex:1 1 260px"><label for="sq">Search security items</label><input type="text" id="sq" placeholder="rls, ssl, md5, default privileges…" autocomplete="off"></div>
+  <div class="chips" role="group" aria-label="Filter by category" id="schips"></div>
+</div>
+<p class="tip" id="scount"></p>
+<div id="scards"></div>
+</section>
+
+<section id="sample" aria-labelledby="h-demo">
+<h2 id="h-demo">sample data</h2>
+<div class="panel" id="dform">
+  <p style="margin-top:0">Practice schema <code>demo</code> (customers, products, categories, orders, order_items) with data loaders and queries from basic to advanced. Run it on a practice database:</p>
+  <pre class="cmd" style="background:#010409;border-radius:6px">psql -d mydb -v ON_ERROR_STOP=1 -f demo.sql</pre>
+  <div class="row" style="margin-top:10px">
+    <div class="field" style="flex:0 1 150px"><label for="dmC">Customers</label><input type="number" id="dmC" value="1000" min="1" max="1000000"></div>
+    <div class="field" style="flex:0 1 150px"><label for="dmO">Orders</label><input type="number" id="dmO" value="5000" min="1" max="5000000"></div>
+    <div class="field" style="flex:0 1 150px"><label for="dmP">Products</label><input type="number" id="dmP" value="50" min="1" max="100000"></div>
+    <button class="primary" id="dm-dl">Download demo.sql</button>
+    <button id="dm-all">Copy all as one script</button>
+    <button id="dm-csv">Download customers.csv</button>
+  </div>
+  <p class="tip" style="margin-bottom:0">The full script runs the schema, hand-written inserts, generated data (with these counts) and every query. Cleanup is included but commented out.</p>
+</div>
+<div class="cards" id="dcards"></div>
+</section>
 </main>
 <footer><div class="wrap">
   <strong>Also see:</strong> <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">pg-dump-wrapper</a> — Manideep's <code>pg_dump</code>/<code>psql</code> wrapper scripts for scheduled, logged backups and runs.<br>
-  Everything runs in your browser; nothing is sent anywhere. Always review a command before running it, especially against production.
+  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.0. Always review a command before running it, especially against production.
 </div></footer>
 <div class="toast" id="toast" role="status"></div>
 
@@ -436,6 +484,504 @@ function renderCards(){const q=$("#rq").value.toLowerCase().trim();
 $("#cards").addEventListener("click",e=>{const d=e.target.dataset;if(d.copy)copy(R[d.copy].cmd);if(d.load){const[t,vals]=R[d.load].load;tab=t;st[t]=Object.assign(defaults(allFields(t)),vals);if(!conn.db)conn.db="shop";renderConn();renderPanel();$("#builder").scrollIntoView({behavior:"smooth"});toast("Loaded into "+t+" — your connection is kept");}});
 
 renderConn();renderProfiles();renderPanel();renderCards();
+/* ---------- security ---------- */
+// kind: sql = runnable SQL, shell = shell command, rds = RDS/Aurora-only, conf = server config
+const SEC=[
+ {cat:"Roles & users",title:"App owner role (owns the schema)",kind:"sql",sql:String.raw`CREATE ROLE app_owner NOLOGIN;
+CREATE SCHEMA IF NOT EXISTS app AUTHORIZATION app_owner;
+-- new database instead:  CREATE DATABASE appdb OWNER app_owner;`,p:"A NOLOGIN role that owns the schema and tables; deployments SET ROLE app_owner.",w:"On RDS the master user isn't a real superuser: GRANT app_owner TO <master> first, or CREATE DATABASE … OWNER fails."},
+ {cat:"Roles & users",title:"Create a login role with a SCRAM password",kind:"sql",sql:String.raw`SET password_encryption = 'scram-sha-256';
+CREATE ROLE alice LOGIN PASSWORD 'Change_me_2026!';
+-- safer from psql (not logged, not in history):  \password alice`,p:"Create a user whose password is stored as a SCRAM-SHA-256 hash.",w:"scram-sha-256 is the default from PG14 (RDS too); PG13/RDS 13 default to md5. Plain-text passwords in SQL can land in logs if log_statement is ddl/all."},
+ {cat:"Roles & users",title:"Read-only role pattern",kind:"sql",sql:String.raw`CREATE ROLE app_readonly NOLOGIN;
+GRANT CONNECT ON DATABASE appdb TO app_readonly;
+GRANT USAGE ON SCHEMA app TO app_readonly;
+GRANT SELECT ON ALL TABLES IN SCHEMA app TO app_readonly;
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA app TO app_readonly;
+ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA app GRANT SELECT ON TABLES TO app_readonly;
+ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA app GRANT SELECT ON SEQUENCES TO app_readonly;
+GRANT app_readonly TO alice;`,p:"Group role with SELECT on existing and future tables; users just become members.",w:"Default privileges only cover objects later created BY app_owner. PG14+ also has the built-in pg_read_all_data (all schemas, all DBs)."},
+ {cat:"Roles & users",title:"Read-write role pattern",kind:"sql",sql:String.raw`CREATE ROLE app_readwrite NOLOGIN;
+GRANT CONNECT ON DATABASE appdb TO app_readwrite;
+GRANT USAGE ON SCHEMA app TO app_readwrite;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA app TO app_readwrite;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO app_readwrite;
+ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_readwrite;
+ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO app_readwrite;`,p:"DML but no DDL: the app can change data, not the schema.",w:"Sequence USAGE is needed for serial/identity inserts. TRUNCATE is deliberately not granted."},
+ {cat:"Roles & users",title:"Grant / revoke role membership",kind:"sql",sql:String.raw`GRANT app_readwrite TO alice;
+REVOKE app_readwrite FROM alice;
+-- see memberships:  \du alice`,p:"Give or take away a whole bundle of privileges at once.",w:"Revoking doesn't end open sessions. PG16 adds GRANT … WITH INHERIT/SET options and requires ADMIN OPTION to grant, not just CREATEROLE."},
+ {cat:"Roles & users",title:"Password expiry (VALID UNTIL)",kind:"sql",sql:String.raw`ALTER ROLE alice VALID UNTIL '2026-12-31 23:59:59+05:30';
+-- remove the expiry:
+ALTER ROLE alice VALID UNTIL 'infinity';`,p:"Make the password stop working after a date.",w:"It only expires the password. Other auth methods (IAM auth, cert, trust/peer) still work."},
+ {cat:"Roles & users",title:"Limit concurrent connections",kind:"sql",sql:String.raw`ALTER ROLE alice CONNECTION LIMIT 5;
+-- unlimited:  ALTER ROLE alice CONNECTION LIMIT -1;`,p:"Cap how many sessions a user can open at once.",w:"Superusers aren't limited (rds_superuser is not a superuser, so it is). Sessions already open over the limit aren't killed."},
+ {cat:"Roles & users",title:"Lock and unlock a user",kind:"sql",sql:String.raw`ALTER ROLE alice NOLOGIN;
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = 'alice';
+-- unlock:
+ALTER ROLE alice LOGIN;`,p:"Block new logins and kick out existing sessions, without dropping anything.",w:"NOLOGIN doesn't touch open sessions, which is why the terminate step is there."},
+ {cat:"Roles & users",title:"Rename a role",kind:"sql",sql:String.raw`ALTER ROLE bob RENAME TO bob_old;`,p:"Rename a user or group; ownerships and grants follow automatically.",w:"MD5 passwords are salted with the role name, so renaming clears them (NOTICE). SCRAM passwords survive. You can't rename the role you're logged in as."},
+ {cat:"Roles & users",title:"Drop a role safely",kind:"sql",sql:String.raw`-- run in EVERY database where bob_old owns objects or has grants:
+REASSIGN OWNED BY bob_old TO app_owner;
+DROP OWNED BY bob_old;
+-- then once, from any database:
+DROP ROLE bob_old;`,p:"Hand objects to another owner, remove grants, then drop the role.",w:"DROP OWNED also drops objects it still owns, so run REASSIGN first. On RDS you must be a member of both roles to REASSIGN."},
+ {cat:"Audits",title:"Roles and their attributes",kind:"sql",sql:String.raw`SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolreplication,
+       rolbypassrls, rolcanlogin, rolconnlimit, rolvaliduntil
+FROM pg_roles
+WHERE rolname !~ '^pg_'
+ORDER BY rolcanlogin DESC, rolname;`,p:"One view of who can log in and who holds powerful attributes.",w:"On RDS every role shows rolsuper = false, including the master user; look at rds_superuser membership instead."},
+ {cat:"Audits",title:"Role memberships (recursive)",kind:"sql",sql:String.raw`WITH RECURSIVE m AS (
+  SELECT am.member, am.roleid, 1 AS depth, ARRAY[am.member, am.roleid] AS path
+  FROM pg_auth_members am
+  UNION ALL
+  SELECT m.member, am.roleid, m.depth + 1, m.path || am.roleid
+  FROM m JOIN pg_auth_members am ON am.member = m.roleid
+  WHERE am.roleid <> ALL (m.path)
+)
+SELECT pg_get_userbyid(member) AS member, pg_get_userbyid(roleid) AS member_of, min(depth) AS depth
+FROM m
+WHERE pg_get_userbyid(member) !~ '^pg_'
+GROUP BY 1, 2
+ORDER BY 1, 3, 2;`,p:"Every role each user inherits, directly (depth 1) or through other roles.",w:"Inheritance can be switched off (NOINHERIT, or PG16 INHERIT FALSE grants); this lists membership, not what's inherited."},
+ {cat:"Audits",title:"Who is superuser / rds_superuser",kind:"sql",sql:String.raw`SELECT r.rolname, r.rolsuper,
+       EXISTS (SELECT 1 FROM pg_auth_members am JOIN pg_roles g ON g.oid = am.roleid
+               WHERE am.member = r.oid AND g.rolname = 'rds_superuser') AS rds_superuser_member
+FROM pg_roles r
+WHERE r.rolsuper
+   OR EXISTS (SELECT 1 FROM pg_auth_members am JOIN pg_roles g ON g.oid = am.roleid
+              WHERE am.member = r.oid AND g.rolname = 'rds_superuser')
+ORDER BY 1;`,p:"The roles with full control: real superusers on self-managed, rds_superuser members on RDS/Aurora.",w:"Shows direct rds_superuser membership only; use the recursive membership query for nested grants. On RDS, rdsadmin is AWS's own superuser."},
+ {cat:"Audits",title:"Table privileges of a role",kind:"sql",sql:String.raw`SELECT grantee, table_schema, table_name,
+       string_agg(privilege_type, ', ' ORDER BY privilege_type) AS privileges
+FROM information_schema.role_table_grants
+WHERE grantee = 'app_readonly'
+GROUP BY 1, 2, 3 ORDER BY 2, 3;
+
+-- effective access (includes memberships), per table:
+SELECT c.oid::regclass AS table_name,
+       has_table_privilege('alice', c.oid, 'SELECT') AS can_select,
+       has_table_privilege('alice', c.oid, 'INSERT') AS can_insert,
+       has_table_privilege('alice', c.oid, 'DELETE') AS can_delete
+FROM pg_class c
+WHERE c.relnamespace = 'app'::regnamespace AND c.relkind IN ('r','p','v','m')
+ORDER BY 1;`,p:"Direct grants for a role, then what a user can actually do.",w:"role_table_grants only shows grants where you are, or are a member of, the grantor or grantee. Run it as an admin."},
+ {cat:"Audits",title:"Schema privileges (decoded ACLs)",kind:"sql",sql:String.raw`SELECT n.nspname AS schema, pg_get_userbyid(n.nspowner) AS owner,
+       CASE a.grantee WHEN 0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END AS grantee,
+       a.privilege_type
+FROM pg_namespace n
+CROSS JOIN LATERAL aclexplode(COALESCE(n.nspacl, acldefault('n', n.nspowner))) a
+WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+ORDER BY 1, 3, 4;`,p:"USAGE/CREATE per schema, including grants to PUBLIC.",w:"A NULL ACL means 'defaults' (owner only); COALESCE with acldefault makes that visible."},
+ {cat:"Audits",title:"Database privileges",kind:"sql",sql:String.raw`SELECT d.datname, pg_get_userbyid(d.datdba) AS owner,
+       CASE a.grantee WHEN 0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END AS grantee,
+       a.privilege_type
+FROM pg_database d
+CROSS JOIN LATERAL aclexplode(COALESCE(d.datacl, acldefault('d', d.datdba))) a
+WHERE NOT d.datistemplate
+ORDER BY 1, 3, 4;`,p:"CONNECT, CREATE and TEMPORARY per database.",w:"By default PUBLIC gets CONNECT and TEMPORARY on every new database."},
+ {cat:"Audits",title:"Default privileges (pg_default_acl decoded)",kind:"sql",sql:String.raw`SELECT pg_get_userbyid(d.defaclrole) AS for_role,
+       COALESCE(n.nspname, '(all schemas)') AS schema,
+       CASE d.defaclobjtype WHEN 'r' THEN 'tables' WHEN 'S' THEN 'sequences' WHEN 'f' THEN 'functions'
+                            WHEN 'T' THEN 'types' WHEN 'n' THEN 'schemas' END AS object_type,
+       CASE a.grantee WHEN 0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END AS grantee,
+       a.privilege_type
+FROM pg_default_acl d
+LEFT JOIN pg_namespace n ON n.oid = d.defaclnamespace
+CROSS JOIN LATERAL aclexplode(d.defaclacl) a
+ORDER BY 1, 2, 3, 4;
+-- psql shortcut:  \ddp`,p:"What future objects will automatically grant, and to whom.",w:"Rows exist per creating role (for_role). Objects created by anyone else get none of these grants."},
+ {cat:"Audits",title:"Objects owned by a role",kind:"sql",sql:String.raw`SELECT 'relation' AS type, c.oid::regclass::text AS object, c.relkind::text AS kind
+FROM pg_class c WHERE c.relowner = 'app_owner'::regrole AND c.relkind IN ('r','p','v','m','S','f')
+UNION ALL
+SELECT 'schema', nspname, '' FROM pg_namespace WHERE nspowner = 'app_owner'::regrole
+UNION ALL
+SELECT 'function', p.oid::regprocedure::text, '' FROM pg_proc p WHERE p.proowner = 'app_owner'::regrole
+UNION ALL
+SELECT 'database', datname, '' FROM pg_database WHERE datdba = 'app_owner'::regrole
+ORDER BY 1, 2;`,p:"Check before dropping or renaming a role.",w:"Tables, schemas and functions are per database: run it in each one. Databases are cluster-wide."},
+ {cat:"Audits",title:"PUBLIC privileges on schema public",kind:"sql",sql:String.raw`SELECT has_schema_privilege('public', 'public', 'CREATE') AS public_can_create,
+       has_schema_privilege('public', 'public', 'USAGE')  AS public_can_use;
+-- PG14 and older (and RDS 14 and older): lock it down
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;`,p:"Stop every user from creating objects in the public schema.",w:"PG15+ already revokes CREATE from PUBLIC, but databases upgraded from older versions keep the old, open grant."},
+ {cat:"Audits",title:"SECURITY DEFINER functions",kind:"sql",sql:String.raw`SELECT p.oid::regprocedure AS function, pg_get_userbyid(p.proowner) AS owner,
+       p.proconfig,
+       NOT EXISTS (SELECT 1 FROM unnest(p.proconfig) c WHERE c LIKE 'search_path=%') AS missing_search_path
+FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE p.prosecdef AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+ORDER BY missing_search_path DESC, 1;`,p:"Functions that run with their owner's rights, a classic privilege-escalation path.",w:"Any of these without a pinned search_path can be hijacked; fix them (see Extras)."},
+ {cat:"Audits",title:"Roles with no password or MD5 passwords",kind:"sql",sql:String.raw`SELECT rolname,
+       CASE WHEN rolpassword IS NULL THEN 'no password'
+            WHEN rolpassword LIKE 'md5%' THEN 'md5'
+            WHEN rolpassword LIKE 'SCRAM-SHA-256$%' THEN 'scram-sha-256'
+            ELSE 'other' END AS password_type
+FROM pg_authid
+WHERE rolcanlogin
+ORDER BY 2, 1;`,p:"Find users still on MD5 hashes so their passwords can be reset under SCRAM.",w:"pg_authid needs a real superuser: it fails with 'permission denied' for other roles and on RDS/Aurora. There, reset passwords after setting password_encryption."},
+ {cat:"Audits",title:"password_encryption setting",kind:"sql",sql:String.raw`SELECT name, setting, source FROM pg_settings WHERE name = 'password_encryption';`,p:"Which hash new passwords get.",w:"Changing it doesn't re-hash anything; each user's password must be set again. RDS: set it in the parameter group."},
+ {cat:"Audits",title:"Login roles whose password never expires",kind:"sql",sql:String.raw`SELECT rolname, rolvaliduntil
+FROM pg_roles
+WHERE rolcanlogin AND (rolvaliduntil IS NULL OR rolvaliduntil = 'infinity')
+ORDER BY 1;`,p:"Candidates for an expiry policy.",w:"Service accounts often intentionally never expire, so rotate their passwords instead."},
+ {cat:"Connections & SSL",title:"Active sessions with SSL status",kind:"sql",sql:String.raw`SELECT a.pid, a.usename, a.datname, a.client_addr, s.ssl, s.version, s.cipher, a.backend_start
+FROM pg_stat_activity a
+JOIN pg_stat_ssl s ON s.pid = a.pid
+WHERE a.backend_type = 'client backend'
+ORDER BY s.ssl, a.usename;`,p:"Spot clients connecting without encryption.",w:"Without pg_read_all_stats (or rds_superuser) you only see details of your own sessions."},
+ {cat:"Connections & SSL",title:"Server SSL settings",kind:"sql",sql:String.raw`SELECT name, setting FROM pg_settings
+WHERE name IN ('ssl', 'ssl_min_protocol_version', 'ssl_ciphers');`,p:"Is TLS on, and what's the minimum protocol?",w:"ssl = on only allows SSL. Forcing it is done with hostssl lines in pg_hba.conf, or rds.force_ssl on RDS."},
+ {cat:"Connections & SSL",title:"rds.force_ssl (RDS/Aurora)",kind:"rds",sql:String.raw`SELECT current_setting('rds.force_ssl', true) AS rds_force_ssl;  -- NULL when not on RDS`,p:"Check if RDS rejects non-SSL connections.",w:"Set it in the DB (cluster) parameter group: 1 = SSL required. It defaults to 1 on RDS for PostgreSQL 15 and later; check your parameter group on older versions and on Aurora."},
+ {cat:"Connections & SSL",title:"psql with sslmode=verify-full (RDS CA bundle)",kind:"shell",sql:String.raw`curl -sSo global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+psql "host=mydb.abc123xyz.us-east-1.rds.amazonaws.com port=5432 dbname=appdb user=alice sslmode=verify-full sslrootcert=global-bundle.pem"`,p:"Encrypt and verify you're really talking to your RDS endpoint.",w:"verify-full checks the host name, so use the RDS endpoint, not an IP or a CNAME that isn't in the certificate."},
+ {cat:"Connections & SSL",title:"Review pg_hba.conf from SQL",kind:"sql",sql:String.raw`SELECT line_number, type, database, user_name, address, netmask, auth_method, error
+FROM pg_hba_file_rules
+ORDER BY line_number;`,p:"See the access rules: who can connect from where, with which method.",w:"Self-managed only, and superuser by default. RDS/Aurora don't expose pg_hba; use security groups plus rds.force_ssl. Look for 'trust' and 'md5' rows."},
+ {cat:"Row-level security",title:"Enable row-level security",kind:"sql",sql:String.raw`ALTER TABLE app.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app.orders FORCE ROW LEVEL SECURITY;  -- apply to the table owner too`,p:"Turn on per-row filtering for a table.",w:"With RLS on and no policy, normal users see zero rows. Superusers and BYPASSRLS roles always bypass it."},
+ {cat:"Row-level security",title:"Tenant policy example",kind:"sql",sql:String.raw`CREATE POLICY orders_tenant ON app.orders
+  USING (tenant_id = current_setting('app.tenant_id', true)::int)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::int);
+-- the app, per session or transaction:
+SET app.tenant_id = '42';`,p:"Each session only sees, and can only write, its own tenant's rows.",w:"Make sure the app always sets app.tenant_id: if it's unset, the setting is NULL and no rows match. Don't let users set it themselves."},
+ {cat:"Row-level security",title:"Tables with RLS and their policies",kind:"sql",sql:String.raw`SELECT c.oid::regclass AS table_name, c.relrowsecurity AS rls_enabled, c.relforcerowsecurity AS rls_forced,
+       p.policyname, p.permissive, p.roles, p.cmd, p.qual, p.with_check
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+LEFT JOIN pg_policies p ON p.schemaname = n.nspname AND p.tablename = c.relname
+WHERE c.relrowsecurity OR p.policyname IS NOT NULL
+ORDER BY 1, 4;`,p:"Audit which tables are protected and by what rules.",w:"A policy on a table with RLS disabled does nothing; look for rls_enabled = false rows."},
+ {cat:"Auditing & logging",title:"pgaudit setup",kind:"conf",sql:String.raw`-- Self-managed: postgresql.conf, then restart
+--   shared_preload_libraries = 'pgaudit'
+-- RDS/Aurora: add pgaudit to shared_preload_libraries in the parameter group, reboot,
+--             and set pgaudit.log there (ALTER SYSTEM isn't allowed on RDS)
+CREATE EXTENSION IF NOT EXISTS pgaudit;
+ALTER SYSTEM SET pgaudit.log = 'ddl, role';
+SELECT pg_reload_conf();
+-- or for one user only:  ALTER ROLE alice SET pgaudit.log = 'all';`,p:"Session audit logging of DDL and role/permission changes.",w:"'all' or 'read, write' can flood logs and add CPU on busy systems. Not runnable here: pgaudit isn't installed locally."},
+ {cat:"Auditing & logging",title:"Object audit with rds_pgaudit",kind:"rds",sql:String.raw`CREATE ROLE rds_pgaudit NOLOGIN;
+-- parameter group: pgaudit.role = rds_pgaudit
+GRANT SELECT, INSERT, UPDATE, DELETE ON app.orders TO rds_pgaudit;`,p:"Log only statements that touch specific tables, whoever runs them.",w:"The grants to rds_pgaudit mark what to audit; they don't give anyone access. Needs pgaudit loaded."},
+ {cat:"Auditing & logging",title:"Log connections and disconnections",kind:"sql",sql:String.raw`ALTER SYSTEM SET log_connections = on;
+ALTER SYSTEM SET log_disconnections = on;
+SELECT pg_reload_conf();`,p:"Record who connects, from where, and session length.",w:"Self-managed only: on RDS/Aurora set them in the parameter group. They apply to new sessions after the reload."},
+ {cat:"Auditing & logging",title:"log_statement",kind:"sql",sql:String.raw`ALTER SYSTEM SET log_statement = 'ddl';   -- none | ddl | mod | all
+SELECT pg_reload_conf();`,p:"Log every DDL statement (schema changes).",w:"'ddl' also logs CREATE/ALTER ROLE … PASSWORD in plain text. 'all' is very noisy, so prefer pgaudit for real audit trails."},
+ {cat:"Auditing & logging",title:"Check current logging and audit settings",kind:"sql",sql:String.raw`SELECT name, setting, source, context
+FROM pg_settings
+WHERE name IN ('log_connections', 'log_disconnections', 'log_statement', 'log_min_duration_statement',
+               'log_line_prefix', 'shared_preload_libraries', 'password_encryption')
+   OR name LIKE 'pgaudit.%'
+ORDER BY 1;`,p:"One look at how much the server is logging.",w:"source = 'configuration file' or 'override' tells you where a value came from. On RDS compare with the parameter group."},
+ {cat:"Extras",title:"Column-level grant",kind:"sql",sql:String.raw`CREATE ROLE app_support NOLOGIN;
+GRANT USAGE ON SCHEMA app TO app_support;
+GRANT SELECT (customer_id, full_name, city) ON app.customers TO app_support;`,p:"Let support staff see some columns but not, say, email or phone.",w:"SELECT * fails for them, so they must list columns. A table-level GRANT SELECT overrides this."},
+ {cat:"Extras",title:"Revoke ALL from PUBLIC on a database",kind:"sql",sql:String.raw`REVOKE ALL ON DATABASE appdb FROM PUBLIC;
+GRANT CONNECT ON DATABASE appdb TO app_readonly, app_readwrite;`,p:"Only roles you name can connect to (and create temp tables in) the database.",w:"Existing users without an explicit grant lose access immediately. Grant first, then revoke."},
+ {cat:"Extras",title:"Harden SECURITY DEFINER functions",kind:"sql",sql:String.raw`CREATE OR REPLACE FUNCTION app.customer_count()
+RETURNS bigint
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $$ SELECT count(*) FROM app.customers $$;
+REVOKE EXECUTE ON FUNCTION app.customer_count() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION app.customer_count() TO app_readonly;`,p:"Pin search_path and schema-qualify everything so callers can't inject their own objects.",w:"Functions are executable by PUBLIC by default; always revoke before granting."},
+ {cat:"Extras",title:"Installed extensions (and pending upgrades)",kind:"sql",sql:String.raw`SELECT e.extname, e.extversion, n.nspname AS schema, pg_get_userbyid(e.extowner) AS owner,
+       a.default_version,
+       e.extversion <> a.default_version AS upgrade_available
+FROM pg_extension e
+JOIN pg_namespace n ON n.oid = e.extnamespace
+LEFT JOIN pg_available_extensions a ON a.name = e.extname
+ORDER BY 1;`,p:"Review what's installed; extensions run with high privileges.",w:"Upgrade with ALTER EXTENSION … UPDATE. On RDS only the allow-listed extensions are available (rds.allowed_extensions on PG16+)."}
+];
+/* ---------- sample data ---------- */
+const DEMO_SCHEMA=String.raw`-- demo schema: customers, products, categories, orders, order_items
+CREATE SCHEMA IF NOT EXISTS demo;
+
+CREATE TABLE IF NOT EXISTS demo.categories (
+  category_id int  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name        text NOT NULL UNIQUE,
+  parent_id   int  REFERENCES demo.categories (category_id)
+);
+
+CREATE TABLE IF NOT EXISTS demo.customers (
+  customer_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  full_name   text NOT NULL,
+  email       text NOT NULL UNIQUE CHECK (email LIKE '%_@_%'),
+  city        text,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS demo.products (
+  product_id  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  sku         text NOT NULL UNIQUE,
+  name        text NOT NULL,
+  category_id int  NOT NULL REFERENCES demo.categories (category_id),
+  price       numeric(10,2) NOT NULL CHECK (price >= 0),
+  attrs       jsonb NOT NULL DEFAULT '{}',
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS demo.orders (
+  order_id    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  customer_id bigint NOT NULL REFERENCES demo.customers (customer_id) ON DELETE CASCADE,
+  status      text NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'paid', 'shipped', 'cancelled')),
+  ordered_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS demo.order_items (
+  order_id   bigint NOT NULL REFERENCES demo.orders (order_id) ON DELETE CASCADE,
+  line_no    int    NOT NULL CHECK (line_no > 0),
+  product_id bigint NOT NULL REFERENCES demo.products (product_id),
+  quantity   int    NOT NULL CHECK (quantity > 0),
+  unit_price numeric(10,2) NOT NULL CHECK (unit_price >= 0),
+  PRIMARY KEY (order_id, line_no)
+);
+
+CREATE INDEX IF NOT EXISTS orders_customer_id_idx   ON demo.orders (customer_id);
+CREATE INDEX IF NOT EXISTS orders_ordered_at_idx    ON demo.orders (ordered_at);
+CREATE INDEX IF NOT EXISTS order_items_product_idx  ON demo.order_items (product_id);
+CREATE INDEX IF NOT EXISTS products_category_idx    ON demo.products (category_id);
+
+-- reference data: a small category tree (used by the recursive CTE)
+INSERT INTO demo.categories (name) VALUES ('Electronics'), ('Books'), ('Home')
+ON CONFLICT (name) DO NOTHING;
+INSERT INTO demo.categories (name, parent_id)
+SELECT v.name, p.category_id
+FROM (VALUES ('Laptops', 'Electronics'), ('Phones', 'Electronics'),
+             ('Databases', 'Books'), ('Kitchen', 'Home')) AS v(name, parent)
+JOIN demo.categories p ON p.name = v.parent
+ON CONFLICT (name) DO NOTHING;`;
+// 'Gaming laptops' needs 'Laptops' to exist first, so it gets its own insert:
+const DEMO_SCHEMA_FIX=String.raw`-- third level: needs 'Laptops' to exist first
+INSERT INTO demo.categories (name, parent_id)
+SELECT 'Gaming laptops', category_id FROM demo.categories WHERE name = 'Laptops'
+ON CONFLICT (name) DO NOTHING;`;
+function demoGen(nc,no,np){return String.raw`-- generated data: ${nc} customers, ${np} products, ${no} orders, 1-4 items per order
+SELECT setseed(0.42);  -- repeatable "random" data
+
+INSERT INTO demo.customers (full_name, email, city, created_at)
+SELECT 'Customer ' || g,
+       'customer' || g || '@example.com',
+       (ARRAY['Hyderabad', 'Bengaluru', 'Chennai', 'Mumbai', 'Delhi', 'Pune'])[1 + g % 6],
+       now() - (g % 730) * interval '1 day'
+FROM generate_series(1, ${nc}) AS g
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO demo.products (sku, name, category_id, price, attrs)
+SELECT 'SKU-' || lpad(g::text, 5, '0'),
+       'Product ' || g,
+       (SELECT category_id FROM demo.categories ORDER BY category_id OFFSET g % 8 LIMIT 1),
+       round((5 + random() * 995)::numeric, 2),
+       jsonb_build_object('color', (ARRAY['red', 'blue', 'black', 'white'])[1 + g % 4],
+                          'weight_kg', round((0.1 + random() * 5)::numeric, 1),
+                          'tags', jsonb_build_array(CASE WHEN g % 3 = 0 THEN 'sale' ELSE 'new' END))
+FROM generate_series(1, ${np}) AS g
+ON CONFLICT (sku) DO NOTHING;
+
+INSERT INTO demo.orders (customer_id, status, ordered_at)
+SELECT b.lo + floor(random() * (b.hi - b.lo + 1))::bigint,
+       (ARRAY['new', 'paid', 'shipped', 'cancelled'])[1 + floor(random() * 4)::int],
+       now() - random() * interval '365 days'
+FROM generate_series(1, ${no}) AS g
+CROSS JOIN (SELECT min(customer_id) AS lo, max(customer_id) AS hi FROM demo.customers) AS b;
+
+INSERT INTO demo.order_items (order_id, line_no, product_id, quantity, unit_price)
+SELECT o.order_id, l, p.product_id, 1 + floor(random() * 5)::int, p.price
+FROM demo.orders o
+CROSS JOIN LATERAL generate_series(1, 1 + (o.order_id % 4)::int) AS l
+CROSS JOIN (SELECT min(product_id) AS lo, count(*) AS n FROM demo.products) AS b
+JOIN demo.products p ON p.product_id = b.lo + (o.order_id * 7 + l * 13) % b.n
+WHERE NOT EXISTS (SELECT 1 FROM demo.order_items i WHERE i.order_id = o.order_id);
+
+ANALYZE demo.customers, demo.products, demo.orders, demo.order_items;`;}
+const DEMO_CSV="full_name,email,city\nAnanya Iyer,ananya.iyer@example.in,Chennai\nRahul Verma,rahul.verma@example.in,Delhi\n\"D'Souza, Maria\",maria.dsouza@example.in,Mumbai\nKiran Reddy,kiran.reddy@example.in,Hyderabad\nSneha Kulkarni,sneha.k@example.in,Pune\n";
+const DEMO=[
+ {id:"schema",title:"1. Create the demo schema",p:"Tables with identity PKs, FKs, CHECK constraints, timestamps and indexes, plus a small category tree.",w:"Re-runnable (IF NOT EXISTS), but it won't change tables that already exist. Run the cleanup for a fresh start.",sql:()=>DEMO_SCHEMA+"\n"+DEMO_SCHEMA_FIX},
+ {id:"inserts",title:"2a. Load: a few hand-written INSERTs",p:"A handful of readable rows, one with an order and its items, using RETURNING and lookups by natural key.",w:"Identity columns are GENERATED ALWAYS, so don't supply ids (or use OVERRIDING SYSTEM VALUE).",sql:()=>String.raw`INSERT INTO demo.customers (full_name, email, city) VALUES
+  ('Asha Rao',     'asha.rao@example.in',     'Bengaluru'),
+  ('Vikram Singh', 'vikram.singh@example.in', 'Delhi'),
+  ('Meera Nair',   'meera.nair@example.in',   'Hyderabad')
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO demo.products (sku, name, category_id, price, attrs)
+SELECT v.sku, v.name, c.category_id, v.price, v.attrs::jsonb
+FROM (VALUES
+  ('BK-PG-001', 'PostgreSQL Internals', 'Databases',      1499.00, '{"color": "white", "format": "paperback", "tags": ["book"]}'),
+  ('LP-GM-015', 'Gaming Laptop 15',     'Gaming laptops', 98999.00, '{"color": "black", "ram_gb": 32, "tags": ["sale"]}'),
+  ('KT-KT-200', 'Electric Kettle',      'Kitchen',        1799.00, '{"color": "red", "litres": 1.5}')
+) AS v(sku, name, category, price, attrs)
+JOIN demo.categories c ON c.name = v.category
+ON CONFLICT (sku) DO NOTHING;
+
+WITH o AS (
+  INSERT INTO demo.orders (customer_id, status)
+  SELECT customer_id, 'paid' FROM demo.customers WHERE email = 'asha.rao@example.in'
+  RETURNING order_id
+)
+INSERT INTO demo.order_items (order_id, line_no, product_id, quantity, unit_price)
+SELECT o.order_id, x.line_no, p.product_id, x.qty, p.price
+FROM o
+CROSS JOIN (VALUES (1, 'BK-PG-001', 2), (2, 'KT-KT-200', 1)) AS x(line_no, sku, qty)
+JOIN demo.products p ON p.sku = x.sku;`},
+ {id:"gen",title:"2b. Load: generated data (generate_series)",gen:true,p:"Bulk, realistic-looking rows. Set the counts above and the script updates.",w:"Run the schema script first. 100k+ orders take a few seconds; the final ANALYZE refreshes planner stats.",sql:()=>demoGen(...demoCounts())},
+ {id:"csv",title:"2c. Load: \\copy from a CSV file",csv:true,p:"Download customers.csv (button above), then load it from your machine with psql.",w:"\\copy is a psql command: run it in psql, not in a GUI. Server-side COPY … FROM '/path' needs pg_read_server_files and the file on the DB server (impossible on RDS).",sql:()=>String.raw`-- customers.csv:
+${DEMO_CSV.trim().split("\n").map(l=>"--   "+l).join("\n")}
+\copy demo.customers (full_name, email, city) FROM 'customers.csv' WITH (FORMAT csv, HEADER)`},
+ {id:"q1",title:"Filter and sort",p:"Recent customers in one city.",w:"Functions on a column (e.g. lower(city)) skip a plain index on it.",sql:()=>String.raw`SELECT customer_id, full_name, city, created_at
+FROM demo.customers
+WHERE city = 'Pune' AND created_at > now() - interval '90 days'
+ORDER BY created_at DESC
+LIMIT 10;`},
+ {id:"q2",title:"Joins: order totals with customer",p:"Inner joins across three tables, with a computed total per order.",w:"Join on keys that are indexed on both sides (here the FK index on order_items is the PK prefix).",sql:()=>String.raw`SELECT o.order_id, c.full_name, o.status, o.ordered_at,
+       sum(i.quantity * i.unit_price) AS order_total
+FROM demo.orders o
+JOIN demo.customers c   ON c.customer_id = o.customer_id
+JOIN demo.order_items i ON i.order_id = o.order_id
+GROUP BY o.order_id, c.full_name
+ORDER BY o.ordered_at DESC
+LIMIT 10;`},
+ {id:"q3",title:"LEFT JOIN: customers with no orders",p:"Find rows with no match on the other side.",w:"Filter the right table in the ON clause, not WHERE, or the LEFT JOIN turns into an inner join.",sql:()=>String.raw`SELECT c.customer_id, c.full_name, c.email
+FROM demo.customers c
+LEFT JOIN demo.orders o ON o.customer_id = c.customer_id
+WHERE o.order_id IS NULL
+ORDER BY c.customer_id
+LIMIT 20;`},
+ {id:"q4",title:"GROUP BY with HAVING",p:"Revenue per city for paid/shipped orders, only cities above a threshold.",w:"HAVING filters groups after aggregation; WHERE filters rows before it.",sql:()=>String.raw`SELECT c.city, count(DISTINCT o.order_id) AS orders,
+       sum(i.quantity * i.unit_price) AS revenue
+FROM demo.orders o
+JOIN demo.customers c   ON c.customer_id = o.customer_id
+JOIN demo.order_items i ON i.order_id = o.order_id
+WHERE o.status IN ('paid', 'shipped')
+GROUP BY c.city
+HAVING sum(i.quantity * i.unit_price) > 10000
+ORDER BY revenue DESC;`},
+ {id:"q5",title:"Window function: running total per day",p:"Daily revenue and a cumulative total.",w:"An ORDER BY inside OVER without a frame defaults to RANGE ... CURRENT ROW, so equal values are summed together.",sql:()=>String.raw`SELECT day, revenue,
+       sum(revenue) OVER (ORDER BY day) AS running_total
+FROM (
+  SELECT date_trunc('day', o.ordered_at)::date AS day, sum(i.quantity * i.unit_price) AS revenue
+  FROM demo.orders o JOIN demo.order_items i ON i.order_id = o.order_id
+  WHERE o.status <> 'cancelled'
+  GROUP BY 1
+) d
+ORDER BY day
+LIMIT 30;`},
+ {id:"q6",title:"Window function: top 3 products per category",p:"Rank inside groups with dense_rank() and keep the top 3.",w:"You can't filter on a window result in the same SELECT's WHERE, so wrap it in a subquery or CTE.",sql:()=>String.raw`SELECT category, product, units, rnk
+FROM (
+  SELECT c.name AS category, p.name AS product, sum(i.quantity) AS units,
+         dense_rank() OVER (PARTITION BY c.name ORDER BY sum(i.quantity) DESC) AS rnk
+  FROM demo.order_items i
+  JOIN demo.products p   ON p.product_id = i.product_id
+  JOIN demo.categories c ON c.category_id = p.category_id
+  GROUP BY c.name, p.name
+) ranked
+WHERE rnk <= 3
+ORDER BY category, rnk;`},
+ {id:"q7",title:"CTE: big spenders",p:"Name a subquery and reuse it.",w:"Since PG12 simple CTEs are inlined; add MATERIALIZED if you want the old 'optimisation fence'.",sql:()=>String.raw`WITH spend AS (
+  SELECT o.customer_id, sum(i.quantity * i.unit_price) AS total
+  FROM demo.orders o JOIN demo.order_items i ON i.order_id = o.order_id
+  WHERE o.status IN ('paid', 'shipped')
+  GROUP BY o.customer_id
+)
+SELECT c.full_name, c.city, s.total
+FROM spend s JOIN demo.customers c ON c.customer_id = s.customer_id
+WHERE s.total > (SELECT avg(total) * 3 FROM spend)
+ORDER BY s.total DESC
+LIMIT 10;`},
+ {id:"q8",title:"Recursive CTE: category tree",p:"Walk the parent/child hierarchy and build a path.",w:"Always make sure the recursion ends; data with a cycle loops forever (PG14+ has a CYCLE clause).",sql:()=>String.raw`WITH RECURSIVE tree AS (
+  SELECT category_id, name, parent_id, 1 AS depth, name::text AS path
+  FROM demo.categories WHERE parent_id IS NULL
+  UNION ALL
+  SELECT c.category_id, c.name, c.parent_id, t.depth + 1, t.path || ' > ' || c.name
+  FROM demo.categories c JOIN tree t ON c.parent_id = t.category_id
+)
+SELECT depth, path FROM tree ORDER BY path;`},
+ {id:"q9",title:"JSONB: query attributes + GIN index",p:"Containment (@>) and ->> extraction, backed by a GIN index.",w:"jsonb_path_ops is smaller and faster for @> but doesn't support ? / ?| key-exists operators.",sql:()=>String.raw`CREATE INDEX IF NOT EXISTS products_attrs_gin ON demo.products USING gin (attrs jsonb_path_ops);
+
+SELECT sku, name, attrs ->> 'color' AS color, (attrs ->> 'weight_kg')::numeric AS weight_kg
+FROM demo.products
+WHERE attrs @> '{"color": "red", "tags": ["sale"]}'
+ORDER BY sku
+LIMIT 10;
+
+UPDATE demo.products SET attrs = attrs || '{"warranty_years": 2}' WHERE sku = 'LP-GM-015';`},
+ {id:"q10",title:"EXPLAIN ANALYZE",p:"See the real plan, timings and buffer use, here an index lookup on orders.customer_id.",w:"ANALYZE really executes the query: wrap UPDATE/DELETE in BEGIN … ROLLBACK when explaining them.",sql:()=>String.raw`EXPLAIN (ANALYZE, BUFFERS)
+SELECT o.order_id, o.status, o.ordered_at
+FROM demo.orders o
+WHERE o.customer_id = 42;
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT status, count(*) FROM demo.orders GROUP BY status;`},
+ {id:"q11",title:"UPDATE / DELETE in a transaction, then ROLLBACK",p:"Practise changes safely: check the effect, then undo.",w:"Autocommit is on in psql, so without BEGIN every statement commits immediately.",sql:()=>String.raw`BEGIN;
+UPDATE demo.orders SET status = 'shipped', updated_at = now()
+WHERE status = 'paid' AND ordered_at < now() - interval '30 days';
+DELETE FROM demo.orders WHERE status = 'cancelled';   -- items go too (ON DELETE CASCADE)
+SELECT status, count(*) FROM demo.orders GROUP BY status;
+ROLLBACK;`},
+ {id:"q12",title:"Upsert (INSERT … ON CONFLICT)",p:"Insert, or update the existing row when the SKU already exists.",w:"ON CONFLICT needs a unique index or constraint on exactly those columns.",sql:()=>String.raw`INSERT INTO demo.products (sku, name, category_id, price)
+SELECT 'BK-PG-001', 'PostgreSQL Internals (2nd ed.)', category_id, 1599.00
+FROM demo.categories WHERE name = 'Databases'
+ON CONFLICT (sku) DO UPDATE
+SET name = EXCLUDED.name, price = EXCLUDED.price
+RETURNING product_id, sku, name, price;`},
+ {id:"cleanup",title:"Cleanup: drop everything",danger:true,p:"Remove the demo schema and all its data.",w:"CASCADE drops every object in schema demo without asking. Check you're connected to the practice database!",sql:()=>String.raw`DROP SCHEMA IF EXISTS demo CASCADE;`}
+];
+function demoCounts(){const g=(id,d,max)=>{const v=parseInt(($(id)||{}).value,10);return Number.isFinite(v)&&v>0?Math.min(v,max):d};return[g("#dmC",1000,1000000),g("#dmO",5000,5000000),g("#dmP",50,100000)];}
+function demoScript(){const[nc,no,np]=demoCounts();
+ return "-- pg-commands demo.sql: "+nc+" customers, "+no+" orders, "+np+" products\n-- run:  psql -d mydb -v ON_ERROR_STOP=1 -f demo.sql\n\\set ON_ERROR_STOP on\n\n"+
+  DEMO.filter(d=>!d.danger&&!d.csv).map(d=>"-- ===== "+d.title+" =====\n"+d.sql()).join("\n\n")+
+  "\n\n-- ===== Cleanup (uncomment to run) =====\n-- DROP SCHEMA IF EXISTS demo CASCADE;\n";}
+/* ---------- shared card renderer ---------- */
+function cardHTML(o){return`<article class="card${o.danger?" danger":""}"><div>${o.tags.map(t=>`<span class="tag${t[1]?" "+t[1]:""}">${esc(t[0])}</span>`).join("")}</div><h4>${esc(o.title)}</h4><p class="purpose">${esc(o.p)}</p><pre>${esc(o.code)}</pre><p class="watch">${esc(o.w)}</p><div class="acts">${o.acts}</div></article>`;}
+const KIND={sql:null,shell:["shell","k-shell"],rds:["RDS/Aurora","k-rds"],conf:["config","k-conf"]};
+/* security cards */
+const SCATS=["all",...new Set(SEC.map(s=>s.cat))];let scat="all";
+$("#schips").innerHTML=SCATS.map(c=>`<button class="chip" aria-pressed="${c==="all"}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
+$("#schips").addEventListener("click",e=>{const c=e.target.dataset.cat;if(!c)return;scat=c;document.querySelectorAll("#schips .chip").forEach(x=>x.setAttribute("aria-pressed",x.dataset.cat===c));renderSec();});
+$("#sq").addEventListener("input",renderSec);
+function renderSec(){const q=$("#sq").value.toLowerCase().trim();
+ const items=SEC.map((s,i)=>[s,i]).filter(([s])=>(scat==="all"||s.cat===scat)&&(!q||(s.cat+" "+s.title+" "+s.sql+" "+s.p+" "+s.w).toLowerCase().includes(q)));
+ $("#scount").textContent=items.length+" of "+SEC.length+" items";
+ const cats=[...new Set(items.map(([s])=>s.cat))];
+ $("#scards").innerHTML=cats.map(c=>`<h3 class="cathead">${esc(c)}</h3><div class="cards">${items.filter(([s])=>s.cat===c).map(([s,i])=>cardHTML({title:s.title,p:s.p,w:s.w,code:s.sql,tags:[[s.cat],...(KIND[s.kind]?[KIND[s.kind]]:[])],acts:`<button class="small" data-scopy="${i}" aria-label="Copy: ${esc(s.title)}">Copy</button>`})).join("")}</div>`).join("")||'<p class="tip">No items match.</p>';}
+$("#scards").addEventListener("click",e=>{const i=e.target.dataset.scopy;if(i!==undefined)copy(SEC[i].sql);});
+/* role builder */
+const RESERVED=new Set("all analyse analyze and any array as asc asymmetric authorization binary both case cast check collate column concurrently constraint create cross current_catalog current_date current_role current_schema current_time current_timestamp current_user default deferrable desc distinct do else end except false fetch for foreign freeze from full grant group having ilike in initially inner intersect into is isnull join lateral leading left like limit localtime localtimestamp natural not notnull null offset on only or order outer overlaps placing primary references returning right select session_user similar some symmetric system_user table tablesample then to trailing true union unique user using variadic verbose when where window with public none".split(" "));
+const qi=s=>/^[a-z_][a-z0-9_$]*$/.test(s)&&!RESERVED.has(s)?s:'"'+s.replace(/"/g,'""')+'"';
+const ql=s=>"'"+String(s).replace(/'/g,"''")+"'";
+function roleSQL(){
+ const v=k=>$("#rb-"+k).value.trim();const role=v("role"),db=v("db"),owner=v("owner"),login=v("login"),rw=$("#rb-type").value==="rw";
+ const schemas=list(v("schemas"));const w=[];
+ if(!role)w.push("Enter a role name.");if(!db)w.push("Enter the database name.");if(!schemas.length)w.push("Enter at least one schema.");
+ [role,owner,login].forEach(n=>{if(n&&/^pg_/i.test(n))w.push(`Role names starting with pg_ are reserved: ${n}`);if(n.length>63)w.push(`Name longer than 63 bytes will be truncated: ${n}`);});
+ if(role&&login&&role===login)w.push("The login user must differ from the group role.");
+ if(w.length)return{sql:"",w};
+ const R=qi(role),tp=rw?"SELECT, INSERT, UPDATE, DELETE":"SELECT",sp=rw?"USAGE, SELECT":"SELECT",fr=owner?` FOR ROLE ${qi(owner)}`:"";
+ const L=[`-- ${rw?"Read-write":"Read-only"} role ${role} on database ${db}, schemas: ${schemas.join(", ")}`,
+  `-- Connect to ${db} as an admin (superuser, or the RDS master user), or as a CREATEROLE user that owns ${db}${owner?` and is a member of ${owner}`:""}.`,
+  `DO $$`,`BEGIN`,`  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = ${ql(role)}) THEN`,`    CREATE ROLE ${R} NOLOGIN;`,`  END IF;`,`END`,`$$;`,
+  `GRANT CONNECT ON DATABASE ${qi(db)} TO ${R};`];
+ schemas.forEach(s=>{const S=qi(s);L.push("",`-- schema ${s}`,`GRANT USAGE ON SCHEMA ${S} TO ${R};`,`GRANT ${tp} ON ALL TABLES IN SCHEMA ${S} TO ${R};`,`GRANT ${sp} ON ALL SEQUENCES IN SCHEMA ${S} TO ${R};`,
+  `ALTER DEFAULT PRIVILEGES${fr} IN SCHEMA ${S} GRANT ${tp} ON TABLES TO ${R};`,`ALTER DEFAULT PRIVILEGES${fr} IN SCHEMA ${S} GRANT ${sp} ON SEQUENCES TO ${R};`);});
+ if(!owner)w.push("No owner given: default privileges will only cover tables created later by the role running this script.");
+ if(login){L.push("",`-- login user (set the password interactively in psql:  \\password ${login})`,`DO $$`,`BEGIN`,`  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = ${ql(login)}) THEN`,`    CREATE ROLE ${qi(login)} LOGIN;`,`  END IF;`,`END`,`$$;`,`GRANT ${R} TO ${qi(login)};`);}
+ L.push("",`-- verify`,`SELECT n.nspname AS schema,`,`       has_schema_privilege(${ql(role)}, n.oid, 'USAGE') AS schema_usage,`,`       count(c.oid) AS tables,`,
+  `       count(c.oid) FILTER (WHERE has_table_privilege(${ql(role)}, c.oid, 'SELECT')) AS can_select,`,`       count(c.oid) FILTER (WHERE has_table_privilege(${ql(role)}, c.oid, 'INSERT')) AS can_insert`,
+  `FROM pg_namespace n`,`LEFT JOIN pg_class c ON c.relnamespace = n.oid AND c.relkind IN ('r', 'p', 'v', 'm')`,`WHERE n.nspname IN (${schemas.map(ql).join(", ")})`,`GROUP BY n.nspname, n.oid`,`ORDER BY 1;`);
+ return{sql:L.join("\n"),w};}
+function updRole(){const r=roleSQL();$("#rb-out").textContent=r.sql||"-- fill in the form";$("#rb-warn").innerHTML=r.w.map(m=>`<div class="warn">⚠ ${esc(m)}</div>`).join("");}
+$("#rolebuilder").addEventListener("input",updRole);$("#rolebuilder").addEventListener("change",updRole);
+$("#rb-copy").addEventListener("click",()=>{const r=roleSQL();if(r.sql)copy(r.sql);else toast("Fill in the form first");});
+/* sample data */
+function download(name,text,type){const b=new Blob([text],{type});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast("Downloaded "+name);}
+function renderDemo(){$("#dcards").innerHTML=DEMO.map((d,i)=>cardHTML({title:d.title,p:d.p,w:d.w,code:d.sql(),danger:d.danger,tags:[[d.danger?"danger":d.id.startsWith("q")?"query":"setup",d.danger?"k-danger":""]],acts:`<button class="small" data-dcopy="${i}" aria-label="Copy: ${esc(d.title)}">Copy</button>${d.csv?`<button class="small" data-dcsv="1">Download customers.csv</button>`:""}`})).join("");}
+$("#dcards").addEventListener("click",e=>{const d=e.target.dataset;if(d.dcopy!==undefined)copy(DEMO[d.dcopy].sql());if(d.dcsv)download("customers.csv",DEMO_CSV,"text/csv");});
+$("#dform").addEventListener("input",renderDemo);
+$("#dm-all").addEventListener("click",()=>copy(demoScript()));
+$("#dm-dl").addEventListener("click",()=>download("demo.sql",demoScript(),"application/sql"));
+$("#dm-csv").addEventListener("click",()=>download("customers.csv",DEMO_CSV,"text/csv"));
+renderSec();updRole();renderDemo();
+
 </script>
 </body>
 </html>
