@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pgc-version" content="2.5">
+<meta name="pgc-version" content="2.6">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>pg-commands · pg_dump, pg_restore & psql builder</title>
 <meta name="description" content="Interactive command builder and recipes for pg_dump, pg_restore and psql. Runs fully in your browser.">
@@ -87,18 +87,52 @@ pre.sqlout{max-height:420px;overflow:auto;font-size:13px}
 @media (max-width:640px){table.model thead{display:none}table.model,table.model tbody,table.model tr,table.model th,table.model td{display:block;width:100%}table.model tr{margin-bottom:8px}table.model tbody th{white-space:normal;background:var(--panel2)}}
 .intro.loud{border-left:4px solid var(--amber);background:#2a2312;padding:8px 10px;border-radius:4px;color:var(--fg);font-size:13.5px}
 fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
+
+/* v2.6 layout */
+header{position:sticky;top:0;z-index:20}
+header .wrap{padding:8px 16px;gap:10px 16px}
+.gtabs{display:flex;gap:2px;flex-wrap:wrap;margin-left:auto}
+.gtabs a{padding:6px 10px;border-radius:6px;text-decoration:none;color:var(--muted);font:600 13px system-ui,sans-serif;white-space:nowrap}
+.gtabs a:hover{color:var(--fg);background:var(--panel2)}
+.gtabs a[aria-current=true]{color:var(--green);background:var(--panel)}
+.jump{position:relative;flex:0 1 240px}
+.jump input{padding:5px 9px;font-size:13px}
+.jumpres{position:absolute;top:100%;left:0;right:0;margin:4px 0 0;padding:4px;list-style:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;z-index:30;max-height:60vh;overflow:auto}
+.jumpres[hidden]{display:none}
+.jumpres li{padding:6px 8px;border-radius:5px;cursor:pointer;font-size:13px}
+.jumpres li small{color:var(--muted);margin-left:6px}
+.jumpres li.on,.jumpres li:hover{background:var(--panel2);color:var(--green)}
+.sitelink{font-size:12px;color:var(--muted);text-decoration:none}
+.layout{display:grid;grid-template-columns:210px minmax(0,1fr);gap:24px;align-items:start}
+#side{position:sticky;top:var(--hh,60px);max-height:calc(100vh - var(--hh,60px));overflow:auto;padding:18px 0}
+#side h4{margin:14px 0 4px;font:700 11px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+#side h4:first-child{margin-top:0}
+#side a{display:block;padding:5px 10px;border-radius:6px;text-decoration:none;color:var(--fg);font-size:13.5px;border-left:2px solid transparent}
+#side a:hover{background:var(--panel)}
+#side a[aria-current=true]{background:var(--panel);color:var(--green);border-left-color:var(--green)}
+.crumb{margin:18px 0 0;font:13px var(--mono);color:var(--muted)}
+.crumb b{color:var(--fg)}
+main section>h2:first-child{margin-top:14px}
+#builder>.tabs{display:none}
+#atabs-hidden,#attabs{display:none}
+.out{top:var(--hh,60px)}
+.sitefoot{margin-top:10px}
+.sitefoot a{margin-right:2px}
+[data-hide]{display:none!important}
+@media (max-width:860px){header{position:static}.sitelink{display:none}.layout{display:block}#side{position:sticky;top:0;z-index:15;background:var(--bg);max-height:none;padding:8px 0;display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line)}#side h4{display:none}#side a{flex:0 0 auto;border-left:0;border:1px solid var(--line);font-size:13px;padding:5px 10px}#side a:not([data-g-on]){display:none}.gtabs{margin-left:0;width:100%;overflow-x:auto;flex-wrap:nowrap}.jump{flex:1 1 100%}.tagline{display:none}.out{position:static}}
 </style>
 </head>
 <body>
-<header><div class="wrap">
-  <a class="logo" href="#top">pg<span>-commands</span></a>
-  <span class="tagline">pg_dump · pg_restore · psql builder &amp; recipes — PostgreSQL 13–17</span>
-  <nav aria-label="Main">
-    <a href="#builder">Builder</a><a href="#recipes">Recipes</a><a href="#security">Security</a><a href="#admin">Admin tools</a><a href="#sample">Sample data</a><a href="#profiles">Profiles</a>
-    <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">Wrappers ↗</a>
-  </nav>
+<header id="hdr"><div class="wrap">
+  <a class="logo" href="#backup/pg_dump">pg<span>-commands</span></a>
+  <span class="tagline">PostgreSQL 13–17 · builders, recipes &amp; DBA tools</span>
+  <div class="jump"><label for="jump" class="sr">Jump to a tool</label><input type="text" id="jump" placeholder="Jump to… ( / )" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="jumpres"><ul id="jumpres" class="jumpres" role="listbox" hidden></ul></div>
+  <nav aria-label="Groups" class="gtabs" id="gtabs"></nav>
+  <a class="sitelink" href="https://manideepgrandhi.github.io/projects/" title="More from Manideep">Projects ↗</a>
 </div></header>
-<main class="wrap" id="top">
+<div class="wrap layout"><aside id="side" aria-label="Tools"></aside>
+<main id="top">
+<p class="crumb" id="crumb" aria-live="polite"></p>
 
 <section id="profiles" aria-labelledby="h-prof">
 <h2 id="h-prof">connection</h2>
@@ -213,12 +247,14 @@ fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
   <div class="warns" id="rm-warn" aria-live="polite"></div>
   <div class="cards" id="rm-cards"></div>
 </div>
+<div id="sec-checklist">
 <div class="row" style="margin-top:16px">
   <div class="field" style="flex:1 1 260px"><label for="sq">Search security items</label><input type="text" id="sq" placeholder="rls, ssl, md5, default privileges…" autocomplete="off"></div>
   <div class="chips" role="group" aria-label="Filter by category" id="schips"></div>
 </div>
 <p class="tip" id="scount"></p>
 <div id="scards"></div>
+</div>
 </section>
 
 <section id="admin" aria-labelledby="h-admin">
@@ -244,10 +280,11 @@ fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
 </div>
 <div class="cards" id="dcards"></div>
 </section>
-</main>
+</main></div>
 <footer><div class="wrap">
   <strong>Also see:</strong> <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">pg-dump-wrapper</a> — Manideep's <code>pg_dump</code>/<code>psql</code> wrapper scripts for scheduled, logged backups and runs.<br>
-  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.5. Always review a command before running it, especially against production.
+  <span class="sitefoot">More from Manideep: <a href="https://manideepgrandhi.github.io/">Home</a> · <a href="https://manideepgrandhi.github.io/projects/">Projects</a> · <a href="https://manideepgrandhi.github.io/tools/">Tools</a> · <a href="https://manideepgrandhi.github.io/pg-commands/">pg-commands</a> · <a href="https://manideepgrandhi.github.io/db-cheatsheet/">DB Cheat Sheet</a> · <a href="https://manideepgrandhi.github.io/paisa-diary/">Paisa Diary</a> · <a href="https://manideepgrandhi.github.io/travel/">Travel</a></span><br>
+  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.6. Always review a command before running it, especially against production.
 </div></footer>
 <div class="toast" id="toast" role="status"></div>
 
@@ -2330,6 +2367,72 @@ $("#rolemodel").addEventListener("input",()=>{if(atTab==="login")atUpdate();});
 atRender();
 
 
+/* ---- v2.6 navigation: groups, sidebar, hash routes (#group/tool), jump search ---- */
+(function(){
+const G=[["backup","Backup & Restore"],["psql","psql & Recipes"],["security","Security"],["monitoring","Monitoring"],["practice","Practice"]];
+// route: [group, id, label, sections to show, extra, keywords]
+const R=[
+ ["backup","pg_dump","pg_dump builder",["profiles","builder"],{tab:"pg_dump"},"dump backup export"],
+ ["backup","pg_restore","pg_restore builder",["profiles","builder"],{tab:"pg_restore"},"restore import"],
+ ["backup","profiles","Connection profiles",["profiles"],{},"connection host saved export import json"],
+ ["psql","psql","psql builder",["profiles","builder"],{tab:"psql"},"psql copy csv script"],
+ ["psql","recipes","Recipes",["recipes"],{},"recipe search examples"],
+ ["security","role-builder","Security role builder",["security"],{sub:"rolebuilder"},"role readonly readwrite connect system pg_read_all_data rds_superuser"],
+ ["security","role-model","Role model generator",["security"],{sub:"rolemodel"},"reader writer app_user owner"],
+ ["security","default-privileges","Default privileges",["admin"],{at:"defpriv"},"alter default privileges future"],
+ ["security","privilege-audit","Privilege audit",["admin"],{at:"audit"},"who can access grants"],
+ ["security","ownership-fixer","Ownership fixer",["admin"],{at:"owner"},"alter owner reassign"],
+ ["security","drop-role","Drop role safely",["admin"],{at:"droprole"},"drop owned reassign"],
+ ["security","login-user","Login user setup",["admin"],{at:"login"},"create user password valid until"],
+ ["security","checklist","Security checklist",["security"],{sub:"sec-checklist"},"ssl rls md5 scram pgaudit logging"],
+ ["monitoring","sessions-locks","Sessions & locks",["admin"],{at:"sessions"},"blocking locks kill terminate cancel idle long running"],
+ ["practice","sample-data","Sample data",["sample"],{},"demo practice schema queries"]];
+const OLD={builder:"backup/pg_dump",recipes:"psql/recipes",security:"security/role-builder",admin:"security/default-privileges",sample:"practice/sample-data",profiles:"backup/profiles",top:"backup/pg_dump",rolebuilder:"security/role-builder",rolemodel:"security/role-model"};
+const key=r=>r[0]+"/"+r[1];const first=g=>R.find(r=>r[0]===g);
+const SECS=["profiles","builder","recipes","security","admin","sample"],SUBS=["rolebuilder","rolemodel","sec-checklist"];
+$("#gtabs").innerHTML=G.map(([g,l])=>`<a href="#${key(first(g))}" data-g="${g}">${esc(l)}</a>`).join("");
+$("#side").innerHTML=G.map(([g,l])=>`<h4>${esc(l)}</h4>`+R.filter(r=>r[0]===g).map(r=>`<a href="#${key(r)}" data-r="${key(r)}" data-gr="${g}">${esc(r[2])}</a>`).join("")).join("");
+let cur=null;
+function go(h,push){h=(h||"").replace(/^#/,"");if(OLD[h])h=OLD[h];let r=R.find(x=>key(x)===h);if(!r){const g=G.find(x=>x[0]===h);r=g?first(g[0]):null;}
+ if(!r){try{r=R.find(x=>key(x)===localStorage.getItem("pgc-route"))}catch(e){}}
+ if(!r)r=R[0];const k=key(r);
+ SECS.forEach(id=>document.getElementById(id).toggleAttribute("data-hide",!r[3].includes(id)));
+ SUBS.forEach(id=>document.getElementById(id).toggleAttribute("data-hide",!!r[4].sub&&r[4].sub!==id));
+ document.querySelector("#security>p.tip").toggleAttribute("data-hide",r[4].sub==="sec-checklist"?false:false);
+ if(r[4].tab&&tab!==r[4].tab){tab=r[4].tab;renderPanel();}
+ if(r[4].at&&atTab!==r[4].at){atTab=r[4].at;atRender();}
+ $("#h-admin").textContent=r[0];
+ $("#h-build").textContent=r[4].tab==="psql"?"psql builder":"builder";
+ document.querySelectorAll("#gtabs a").forEach(a=>{const on=a.dataset.g===r[0];a.setAttribute("aria-current",on);});
+ document.querySelectorAll("#side a").forEach(a=>{a.setAttribute("aria-current",a.dataset.r===k);a.toggleAttribute("data-g-on",a.dataset.gr===r[0]);});
+ $("#crumb").innerHTML=`${esc(G.find(g=>g[0]===r[0])[1])} › <b>${esc(r[2])}</b>`;
+ document.title=r[2]+" · pg-commands";
+ try{localStorage.setItem("pgc-route",k)}catch(e){}
+ if(location.hash!=="#"+k)history.replaceState(null,"","#"+k);
+ const sa=document.querySelector("#side a[aria-current=true]");if(sa&&innerWidth<=860)sa.parentNode.scrollLeft=sa.offsetLeft-20;
+ if(cur!==null&&cur!==k)window.scrollTo(0,0);cur=k;}
+window.pgcGo=go;
+addEventListener("hashchange",()=>go(location.hash));
+// recipe "Load into builder" -> follow the builder tab it loaded
+$("#cards").addEventListener("click",e=>{if(e.target.dataset.load){const r=R.find(x=>x[4].tab===tab);if(r)go(key(r));}});
+// header height for sticky offsets
+const hh=()=>document.documentElement.style.setProperty("--hh",(innerWidth<=860?0:$("#hdr").offsetHeight)+"px");addEventListener("resize",hh);hh();
+// jump search
+const J=$("#jump"),JL=$("#jumpres");let hits=[],sel=0;
+function jdraw(){const q=J.value.trim().toLowerCase();if(!q){JL.hidden=true;J.setAttribute("aria-expanded","false");return;}
+ hits=R.filter(r=>(r[2]+" "+r[5]+" "+r[0]).toLowerCase().includes(q)).map(r=>({k:key(r),l:r[2],g:G.find(g=>g[0]===r[0])[1]}));
+ hits.push({k:"psql/recipes",l:`Search recipes for “${J.value.trim()}”`,g:"recipes",q:1},{k:"security/checklist",l:`Search security items for “${J.value.trim()}”`,g:"security",q:2});
+ sel=Math.min(sel,hits.length-1);JL.innerHTML=hits.map((h,i)=>`<li role="option" data-i="${i}" class="${i===sel?"on":""}" aria-selected="${i===sel}">${esc(h.l)}<small>${esc(h.g)}</small></li>`).join("");JL.hidden=false;J.setAttribute("aria-expanded","true");}
+function jpick(i){const h=hits[i];if(!h)return;const q=J.value.trim();go(h.k);
+ if(h.q){const inp=h.q===1?$("#rq"):$("#sq");inp.value=q;inp.dispatchEvent(new Event("input",{bubbles:true}));}
+ J.value="";JL.hidden=true;J.blur();}
+J.addEventListener("input",()=>{sel=0;jdraw();});
+J.addEventListener("keydown",e=>{if(JL.hidden)return;if(e.key==="ArrowDown"){sel=(sel+1)%hits.length;jdraw();e.preventDefault();}else if(e.key==="ArrowUp"){sel=(sel+hits.length-1)%hits.length;jdraw();e.preventDefault();}else if(e.key==="Enter"){jpick(sel);e.preventDefault();}else if(e.key==="Escape"){JL.hidden=true;}});
+JL.addEventListener("mousedown",e=>{const li=e.target.closest("li");if(li){e.preventDefault();jpick(+li.dataset.i);}});
+J.addEventListener("blur",()=>setTimeout(()=>JL.hidden=true,150));
+document.addEventListener("keydown",e=>{if(e.key==="/"&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){e.preventDefault();J.focus();}});
+go(location.hash);
+})();
 </script>
 </body>
 </html>

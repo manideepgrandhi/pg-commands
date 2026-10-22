@@ -7,6 +7,19 @@ It's one self-contained `index.html` with no build step, no CDNs and no server, 
 
 ![Desktop](screenshots/desktop.png)
 
+## Layout (v2.6)
+The page is split into groups with a sidebar (a scrolling sub-tab bar on mobile), a sticky header with group tabs, and a **Jump to…** search (press `/`). Every tool has a deep link that survives reloads, and the last tool you used is reopened:
+
+| Group | Tools (deep links) |
+|---|---|
+| Backup & Restore | `#backup/pg_dump`, `#backup/pg_restore`, `#backup/profiles` |
+| psql & Recipes | `#psql/psql`, `#psql/recipes` |
+| Security | `#security/role-builder`, `#security/role-model`, `#security/default-privileges`, `#security/privilege-audit`, `#security/ownership-fixer`, `#security/drop-role`, `#security/login-user`, `#security/checklist` |
+| Monitoring | `#monitoring/sessions-locks` |
+| Practice | `#practice/sample-data` |
+
+Old anchors (`#builder`, `#recipes`, `#security`, `#admin`, `#sample`, `#profiles`) still work and redirect.
+
 ## Features
 - **Command builder.** Tabs for pg_dump, pg_restore and psql, with grouped options and an explanation for each one. The command updates live with correct shell quoting, and has Copy, Reset and multi-line buttons.
 - **Validation as you type.** It warns about `-j` without `-Fd`, `--single-transaction` with `-j`, `--clean` without `--if-exists`, `--if-exists` without `--clean`, compression with `-Ft`, a plain `.sql` file given to pg_restore, schema-qualified `pg_restore -t`, and scripts run without `ON_ERROR_STOP`. A **red banner** appears when the restore target host or database name contains `prod`.
@@ -74,3 +87,8 @@ The Security role builder now has:
 Tested on PostgreSQL 13, 16 and 17 as a CREATEROLE admin and as superuser.
 
 ![Role builder v2.5](screenshots/desktop-role-builder-v25.png)
+
+## Changelog
+- **2.6** Reorganized into grouped navigation (sidebar + group tabs + jump search), hash deep links, links to Manideep's other projects. No features removed; saved profiles and settings are kept.
+- **2.5** CONNECT on extra databases, predefined system role checkboxes, rds_superuser option.
+- **2.3** Keep current owners option. **2.2** Admin tools. **2.1** Role model generator.
