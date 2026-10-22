@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pgc-version" content="2.3">
+<meta name="pgc-version" content="2.4">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>pg-commands · pg_dump, pg_restore & psql builder</title>
 <meta name="description" content="Interactive command builder and recipes for pg_dump, pg_restore and psql. Runs fully in your browser.">
@@ -164,6 +164,7 @@ fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
     <div class="field"><label for="rb-schemas">Schemas</label><input type="text" id="rb-schemas" value="app" autocomplete="off" spellcheck="false"><div class="tip">Comma-separated, e.g. app, reporting.</div></div>
     <div class="field"><label for="rb-owner">Owner of future tables (optional)</label><input type="text" id="rb-owner" value="app_owner" autocomplete="off" spellcheck="false"><div class="tip">Used in ALTER DEFAULT PRIVILEGES FOR ROLE.</div></div>
     <div class="field"><label for="rb-login">Login user to add (optional)</label><input type="text" id="rb-login" placeholder="alice" autocomplete="off" spellcheck="false"><div class="tip">Created without a password; set one with \password.</div></div>
+    <div class="check"><input type="checkbox" id="rb-exec" aria-describedby="rb-exec-tip"><div><label for="rb-exec" class="mono" style="font-size:13px">GRANT EXECUTE on functions and procedures</label><div class="tip" id="rb-exec-tip">ON ALL ROUTINES IN SCHEMA (PG11+), plus default privileges ON FUNCTIONS (covers procedures).</div></div></div>
   </div>
   <div class="term" style="margin-top:12px"><div class="termbar"><span class="mono tip">role.sql</span><span class="sp"></span><button class="small primary" id="rb-copy">Copy SQL</button></div><pre class="cmd sqlout" id="rb-out" aria-live="polite"></pre></div>
   <div class="warns" id="rb-warn" aria-live="polite"></div>
@@ -177,7 +178,7 @@ fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
     <tbody>
       <tr><th scope="row">owner <code>{db}_owner</code></th><td>Owns the database, schemas and all objects. Runs DDL and migrations via <code>SET ROLE</code>.</td><td>NOLOGIN. The admin running the script is granted it (required on RDS: master user → owner).</td></tr>
       <tr><th scope="row">reader <code>{db}_reader</code></th><td>CONNECT; USAGE on the schemas; SELECT on tables, views and sequences</td><td>Direct grants plus <code>ALTER DEFAULT PRIVILEGES FOR ROLE owner</code> for future objects</td></tr>
-      <tr><th scope="row">writer <code>{db}_writer</code></th><td>reader + INSERT/UPDATE/DELETE (TRUNCATE optional); USAGE/SELECT/UPDATE on sequences; EXECUTE on functions</td><td><code>GRANT reader TO writer</code> (inherits), plus its own grants and default privileges</td></tr>
+      <tr><th scope="row">writer <code>{db}_writer</code></th><td>reader + INSERT/UPDATE/DELETE (TRUNCATE optional); USAGE/SELECT/UPDATE on sequences; EXECUTE on functions and procedures (see Extra grants)</td><td><code>GRANT reader TO writer</code> (inherits), plus its own grants and default privileges</td></tr>
       <tr><th scope="row">app_user <code>{db}_app_user</code></th><td>writer + TEMP tables. The role the application connects with; no CREATE anywhere, so no DDL.</td><td><code>GRANT writer TO app_user</code>; <code>search_path</code> set to the managed schemas</td></tr>
       <tr><th scope="row">PUBLIC</th><td>Nothing (with the revoke option): no CONNECT/TEMP on the database, no CREATE in schema public, no EXECUTE on new functions</td><td><code>REVOKE … FROM PUBLIC</code></td></tr>
     </tbody></table></div>
@@ -198,6 +199,22 @@ fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
     <div class="check"><input type="checkbox" id="rm-fdw" disabled aria-describedby="rm-fdw-tip"><div><label for="rm-fdw" class="mono" style="font-size:13px">Grant USAGE on all foreign servers to reader</label><div class="tip" id="rm-fdw-tip">Querying a foreign table needs SELECT on it plus a user mapping for the querying role (or PUBLIC). Server USAGE is only needed to create foreign tables or your own user mappings.</div></div></div>
     <div class="check"><input type="checkbox" id="rm-trunc" aria-describedby="rm-trunc-tip"><div><label for="rm-trunc" class="mono" style="font-size:13px">Writer may TRUNCATE</label><div class="tip" id="rm-trunc-tip">Off by default: TRUNCATE skips DELETE triggers and RLS.</div></div></div>
   </div>
+  <fieldset id="rm-extra" style="margin-top:12px"><legend>Extra grants: EXECUTE and USAGE</legend>
+  <p class="tip" style="margin-top:0">Each grant runs object by object (extension members skipped) and is paired with default privileges FOR ROLE the owner (keep mode: each object creator), so future objects are covered too. Writer inherits reader, and app_user inherits writer.</p>
+  <div class="grid">
+    <div class="field"><span class="mono tip">GRANT EXECUTE to</span><div class="chips"><label class="check" style="align-items:center"><input type="checkbox" id="rm-ex-reader"> <span class="mono" style="font-size:12.5px">reader</span></label> <label class="check" style="align-items:center"><input type="checkbox" id="rm-ex-writer" checked> <span class="mono" style="font-size:12.5px">writer</span></label> <label class="check" style="align-items:center"><input type="checkbox" id="rm-ex-app" checked> <span class="mono" style="font-size:12.5px">app</span></label> </div><div class="tip">Reader is off by default because functions can write data.</div></div>
+    <div class="field"><label for="rm-exkind">EXECUTE on</label><select id="rm-exkind"><option value="both">functions and procedures (ROUTINES)</option><option value="functions">functions only</option><option value="procedures">procedures only (PG11+)</option></select><div class="tip">Applies to existing routines. Default privileges always use ON FUNCTIONS, which covers new functions and procedures whichever you pick (ON ROUTINES isn't valid there).</div></div>
+    <div class="check"><input type="checkbox" id="rm-exrevoke" aria-describedby="rm-exrevoke-tip"><div><label for="rm-exrevoke" class="mono" style="font-size:13px">Revoke EXECUTE from PUBLIC</label><div class="tip" id="rm-exrevoke-tip">Existing routines in the schemas, plus ALTER DEFAULT PRIVILEGES … REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC. Only the roles you grant to can run them.</div></div></div>
+    <div class="check"><input type="checkbox" id="rm-schusage" checked aria-describedby="rm-schusage-tip"><div><label for="rm-schusage" class="mono" style="font-size:13px">GRANT USAGE on schemas to reader</label><div class="tip" id="rm-schusage-tip">Needed to see anything in the schema; writer and app_user inherit it. Untick only if you manage schema USAGE yourself.</div></div></div>
+    <div class="check"><input type="checkbox" id="rm-rseq" checked aria-describedby="rm-rseq-tip"><div><label for="rm-rseq" class="mono" style="font-size:13px">Reader: SELECT on sequences</label><div class="tip" id="rm-rseq-tip">Lets reader read currval/last_value. No nextval.</div></div></div>
+    <div class="check"><input type="checkbox" id="rm-wseq" checked aria-describedby="rm-wseq-tip"><div><label for="rm-wseq" class="mono" style="font-size:13px">Writer: UPDATE on sequences (setval)</label><div class="tip" id="rm-wseq-tip">Writer always gets USAGE, SELECT (nextval for inserts). UPDATE also allows setval.</div></div></div>
+    <div class="field"><span class="mono tip">USAGE on types/domains to</span><div class="chips"><label class="check" style="align-items:center"><input type="checkbox" id="rm-ty-reader"> <span class="mono" style="font-size:12.5px">reader</span></label> <label class="check" style="align-items:center"><input type="checkbox" id="rm-ty-writer"> <span class="mono" style="font-size:12.5px">writer</span></label> <label class="check" style="align-items:center"><input type="checkbox" id="rm-ty-app"> <span class="mono" style="font-size:12.5px">app</span></label> </div><div class="tip">Types are usable by PUBLIC by default. Needed only after REVOKE USAGE ON TYPE … FROM PUBLIC. Adds default privileges ON TYPES.</div></div>
+    <div class="field"><label for="rm-urole">Server / wrapper / language USAGE to</label><select id="rm-urole"><option value="reader">reader</option><option value="writer">writer</option><option value="app">app_user</option></select><div class="tip">Used by the three fields below.</div></div>
+    <div class="field"><label for="rm-servers">Foreign servers (optional)</label><input type="text" id="rm-servers" placeholder="e.g. hr_srv, sales_srv  or  *" autocomplete="off" spellcheck="false"><div class="tip">GRANT USAGE ON FOREIGN SERVER. Lets the role create its own user mappings or foreign tables. * = all servers.</div></div>
+    <div class="field"><label for="rm-fdws">Foreign data wrappers (optional)</label><input type="text" id="rm-fdws" placeholder="e.g. postgres_fdw" autocomplete="off" spellcheck="false"><div class="tip">GRANT USAGE ON FOREIGN DATA WRAPPER. Only needed to CREATE SERVER.</div></div>
+    <div class="field"><label for="rm-langs">Languages (optional)</label><input type="text" id="rm-langs" placeholder="e.g. plpgsql" autocomplete="off" spellcheck="false"><div class="tip">GRANT USAGE ON LANGUAGE. Lets the role create functions in it, so it also needs CREATE on a schema. On RDS, plpgsql is owned by rdsadmin, so it is skipped with a NOTICE.</div></div>
+  </div>
+  </fieldset>
   <div class="term" style="margin-top:12px"><div class="termbar"><span class="mono tip">how to run</span><span class="sp"></span><button class="small" id="rm-runcopy">Copy</button></div><pre class="cmd" id="rm-run"></pre></div>
   <div class="term" style="margin-top:10px"><div class="termbar"><span class="mono tip" id="rm-fname">role_model.sql</span><span class="sp"></span><button class="small" id="rm-dl">Download</button><button class="small primary" id="rm-copy">Copy script</button></div><pre class="cmd sqlout" id="rm-out" aria-live="off"></pre></div>
   <div class="warns" id="rm-warn" aria-live="polite"></div>
@@ -237,7 +254,7 @@ fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
 </main>
 <footer><div class="wrap">
   <strong>Also see:</strong> <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">pg-dump-wrapper</a> — Manideep's <code>pg_dump</code>/<code>psql</code> wrapper scripts for scheduled, logged backups and runs.<br>
-  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.3. Always review a command before running it, especially against production.
+  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.4. Always review a command before running it, especially against production.
 </div></footer>
 <div class="toast" id="toast" role="status"></div>
 
@@ -1008,7 +1025,7 @@ function roleSQL(){
   `DO $$`,`BEGIN`,`  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = ${ql(role)}) THEN`,`    CREATE ROLE ${R} NOLOGIN;`,`  END IF;`,`END`,`$$;`,
   `GRANT CONNECT ON DATABASE ${qi(db)} TO ${R};`];
  schemas.forEach(s=>{const S=qi(s);L.push("",`-- schema ${s}`,`GRANT USAGE ON SCHEMA ${S} TO ${R};`,`GRANT ${tp} ON ALL TABLES IN SCHEMA ${S} TO ${R};`,`GRANT ${sp} ON ALL SEQUENCES IN SCHEMA ${S} TO ${R};`,
-  `ALTER DEFAULT PRIVILEGES${fr} IN SCHEMA ${S} GRANT ${tp} ON TABLES TO ${R};`,`ALTER DEFAULT PRIVILEGES${fr} IN SCHEMA ${S} GRANT ${sp} ON SEQUENCES TO ${R};`);});
+  `ALTER DEFAULT PRIVILEGES${fr} IN SCHEMA ${S} GRANT ${tp} ON TABLES TO ${R};`,`ALTER DEFAULT PRIVILEGES${fr} IN SCHEMA ${S} GRANT ${sp} ON SEQUENCES TO ${R};`);if($("#rb-exec").checked)L.push(`GRANT EXECUTE ON ALL ROUTINES IN SCHEMA ${S} TO ${R};`,`ALTER DEFAULT PRIVILEGES${fr} IN SCHEMA ${S} GRANT EXECUTE ON FUNCTIONS TO ${R};`);});
  if(!owner)w.push("No owner given: default privileges will only cover tables created later by the role running this script.");
  if(login){L.push("",`-- login user (set the password interactively in psql:  \\password ${login})`,`DO $$`,`BEGIN`,`  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = ${ql(login)}) THEN`,`    CREATE ROLE ${qi(login)} LOGIN;`,`  END IF;`,`END`,`$$;`,`GRANT ${R} TO ${qi(login)};`);}
  L.push("",`-- verify`,`SELECT n.nspname AS schema,`,`       has_schema_privilege(${ql(role)}, n.oid, 'USAGE') AS schema_usage,`,`       count(c.oid) AS tables,`,
@@ -1027,10 +1044,271 @@ $("#dm-all").addEventListener("click",()=>copy(demoScript()));
 $("#dm-dl").addEventListener("click",()=>download("demo.sql",demoScript(),"application/sql"));
 $("#dm-csv").addEventListener("click",()=>download("customers.csv",DEMO_CSV,"text/csv"));
 renderSec();updRole();renderDemo();
-/* ---------- database role model (owner / reader / writer / app_user) ---------- */
+/* ---------- role model: extra EXECUTE / USAGE grants (v2.4) ---------- */
+function rmExtraParams(o){return[
+ rmDefault("exec_roles",`\\set exec_roles ${psqlLit(o.exRoles)}`),rmDefault("exec_kind",`\\set exec_kind ${psqlLit(o.exKind)}`),
+ rmDefault("revoke_exec_public",`\\set revoke_exec_public ${o.exRevoke}`),rmDefault("schema_usage",`\\set schema_usage ${o.schUsage}`),
+ rmDefault("reader_seq",`\\set reader_seq ${o.rseq}`),rmDefault("writer_seq_update",`\\set writer_seq_update ${o.wseq}`),
+ rmDefault("type_roles",`\\set type_roles ${psqlLit(o.tyRoles)}`),rmDefault("usage_role",`\\set usage_role ${psqlLit(o.uRole)}`),
+ rmDefault("fdw_servers",`\\set fdw_servers ${psqlLit(o.servers)}`),rmDefault("fdw_wrappers",`\\set fdw_wrappers ${psqlLit(o.fdws)}`),
+ rmDefault("languages",`\\set languages ${psqlLit(o.langs)}`)].join("\n");}
+const RMX_SET=String.raw`SELECT set_config('role_model.exec_roles', :'exec_roles',         false),
+       set_config('role_model.exec_kind',  :'exec_kind',          false),
+       set_config('role_model.revoke_exec', :'revoke_exec_public'::boolean::text, false),
+       set_config('role_model.schusage',   :'schema_usage'::boolean::text,       false),
+       set_config('role_model.rseq',       :'reader_seq'::boolean::text,         false),
+       set_config('role_model.wseq',       :'writer_seq_update'::boolean::text,  false),
+       set_config('role_model.type_roles', :'type_roles',         false),
+       set_config('role_model.usage_role', :'usage_role',         false),
+       set_config('role_model.servers',    :'fdw_servers',        false),
+       set_config('role_model.fdws',       :'fdw_wrappers',       false),
+       set_config('role_model.langs',      :'languages',          false),`;
+function rmExtraSQL(){return String.raw`-- ---------------------------------------------------------------------
+-- Extra grants: EXECUTE on functions/procedures, USAGE on types, servers, wrappers, languages
+--   Same effect as GRANT EXECUTE ON ALL FUNCTIONS | ALL PROCEDURES IN SCHEMA s TO r, but object by
+--   object, so extension members are skipped and anything we may not grant is reported, not fatal.
+--   Default privileges use ON FUNCTIONS, which covers procedures too (ON ROUTINES isn't allowed there).
+-- ---------------------------------------------------------------------
+DO $do$
+DECLARE
+  _map     jsonb  := jsonb_build_object('reader', current_setting('role_model.reader'),
+                                        'writer', current_setting('role_model.writer'),
+                                        'app',    current_setting('role_model.app'));
+  _schemas text[] := ARRAY(SELECT btrim(x) FROM unnest(string_to_array(current_setting('role_model.schemas'), ',')) AS x
+                           WHERE btrim(x) <> '' AND EXISTS (SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname = btrim(x)));
+  _owners  text[] := ARRAY(SELECT btrim(x) FROM unnest(string_to_array(current_setting('role_model.owners_resolved'), ',')) AS x
+                           WHERE btrim(x) <> '');
+  _exec    text[] := ARRAY(SELECT DISTINCT _map ->> btrim(x) FROM unnest(string_to_array(current_setting('role_model.exec_roles'), ',')) AS x
+                           WHERE _map ? btrim(x));
+  _types   text[] := ARRAY(SELECT DISTINCT _map ->> btrim(x) FROM unnest(string_to_array(current_setting('role_model.type_roles'), ',')) AS x
+                           WHERE _map ? btrim(x));
+  _urole   text   := COALESCE(_map ->> btrim(current_setting('role_model.usage_role')), current_setting('role_model.reader'));
+  _kind    text   := current_setting('role_model.exec_kind');
+  _revoke  boolean := current_setting('role_model.revoke_exec')::boolean;
+  _kinds   "char"[];
+  _s text; _r text; _o text; _x text; _obj record; _skipped int := 0;
+BEGIN
+  IF _kind NOT IN ('both', 'functions', 'procedures') THEN
+    RAISE EXCEPTION 'exec_kind must be both, functions or procedures (got %)', _kind;
+  END IF;
+  _kinds := CASE _kind WHEN 'functions' THEN '{f,a,w}' WHEN 'procedures' THEN '{p}' ELSE '{f,a,w,p}' END::"char"[];
+
+  FOREACH _s IN ARRAY _schemas LOOP
+    FOR _obj IN
+      SELECT p.oid::regprocedure::text AS name, p.prokind, pg_get_userbyid(p.proowner) AS obj_owner
+      FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = _s
+        AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.classid = 'pg_proc'::regclass
+                        AND d.objid = p.oid AND d.deptype IN ('e', 'i'))
+      ORDER BY 1
+    LOOP
+      BEGIN
+        IF _revoke THEN
+          EXECUTE format('REVOKE EXECUTE ON ROUTINE %s FROM PUBLIC', _obj.name);
+        END IF;
+        IF _obj.prokind = ANY (_kinds) THEN
+          FOREACH _r IN ARRAY _exec LOOP
+            EXECUTE format('GRANT EXECUTE ON ROUTINE %s TO %I', _obj.name, _r);
+          END LOOP;
+        END IF;
+      EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Skipped: routine % (owned by %; GRANT % TO % to fix)', _obj.name, _obj.obj_owner,
+                     quote_ident(_obj.obj_owner), quote_ident(current_user);
+        _skipped := _skipped + 1;
+      END;
+    END LOOP;
+
+    FOR _obj IN
+      SELECT format('%I.%I', n.nspname, t.typname) AS name, t.typtype = 'd' AS is_domain,
+             pg_get_userbyid(t.typowner) AS obj_owner
+      FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+      LEFT JOIN pg_catalog.pg_class c ON c.oid = t.typrelid
+      WHERE n.nspname = _s AND t.typtype IN ('b', 'c', 'd', 'e', 'r', 'm')
+        AND (t.typrelid = 0 OR c.relkind = 'c')                         -- not table row types
+        AND NOT (t.typcategory = 'A' AND t.typelem <> 0)                -- not array types
+        AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.classid = 'pg_type'::regclass
+                        AND d.objid = t.oid AND d.deptype = 'e')
+        AND cardinality(_types) > 0
+      ORDER BY 1
+    LOOP
+      BEGIN
+        FOREACH _r IN ARRAY _types LOOP
+          EXECUTE format('GRANT USAGE ON %s %s TO %I', CASE WHEN _obj.is_domain THEN 'DOMAIN' ELSE 'TYPE' END, _obj.name, _r);
+        END LOOP;
+      EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Skipped: type % (owned by %)', _obj.name, _obj.obj_owner;
+        _skipped := _skipped + 1;
+      END;
+    END LOOP;
+
+    -- future routines and types, per object-creating role
+    FOREACH _o IN ARRAY _owners LOOP
+      BEGIN
+        FOREACH _r IN ARRAY _exec LOOP
+          EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT EXECUTE ON FUNCTIONS TO %I', _o, _s, _r);
+        END LOOP;
+        FOREACH _r IN ARRAY _types LOOP
+          EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT USAGE ON TYPES TO %I', _o, _s, _r);
+        END LOOP;
+      EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Skipped default EXECUTE/USAGE FOR ROLE % in % - %. Fix: GRANT % TO %', _o, _s, SQLERRM,
+                     quote_ident(_o), quote_ident(current_user);
+        _skipped := _skipped + 1;
+      END;
+    END LOOP;
+  END LOOP;
+
+  -- new routines are not executable by PUBLIC (a database-wide default, so no IN SCHEMA)
+  IF _revoke THEN
+    FOREACH _o IN ARRAY _owners LOOP
+      BEGIN
+        EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC', _o);
+      EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Skipped REVOKE EXECUTE default FOR ROLE % - %', _o, SQLERRM;
+        _skipped := _skipped + 1;
+      END;
+    END LOOP;
+  END IF;
+
+  -- foreign servers (* = all), foreign data wrappers, languages
+  FOR _x IN SELECT btrim(x) FROM unnest(string_to_array(current_setting('role_model.servers'), ',')) AS x WHERE btrim(x) <> '' LOOP
+    FOR _obj IN SELECT srvname FROM pg_catalog.pg_foreign_server WHERE _x = '*' OR srvname = _x ORDER BY 1 LOOP
+      BEGIN
+        EXECUTE format('GRANT USAGE ON FOREIGN SERVER %I TO %I', _obj.srvname, _urole);
+        IF EXISTS (SELECT 1 FROM pg_catalog.pg_foreign_server f, aclexplode(f.srvacl) a
+                   WHERE f.srvname = _obj.srvname AND a.grantee = _urole::regrole) THEN
+          RAISE NOTICE 'Granted USAGE on foreign server % to %', _obj.srvname, _urole;
+        ELSE
+          RAISE NOTICE 'Skipped: USAGE on foreign server % - no grant option (run as its owner %)', _obj.srvname,
+                       (SELECT pg_get_userbyid(srvowner) FROM pg_catalog.pg_foreign_server WHERE srvname = _obj.srvname);
+          _skipped := _skipped + 1;
+        END IF;
+      EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Skipped: USAGE on foreign server % - %', _obj.srvname, SQLERRM;
+        _skipped := _skipped + 1;
+      END;
+    END LOOP;
+    IF _x <> '*' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_foreign_server WHERE srvname = _x) THEN
+      RAISE NOTICE 'Foreign server % does not exist - skipped', _x;
+    END IF;
+  END LOOP;
+  FOR _x IN SELECT btrim(x) FROM unnest(string_to_array(current_setting('role_model.fdws'), ',')) AS x WHERE btrim(x) <> '' LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_foreign_data_wrapper WHERE fdwname = _x) THEN
+      RAISE NOTICE 'Foreign data wrapper % does not exist (CREATE EXTENSION first) - skipped', _x;
+      CONTINUE;
+    END IF;
+    BEGIN
+      EXECUTE format('GRANT USAGE ON FOREIGN DATA WRAPPER %I TO %I', _x, _urole);
+      IF EXISTS (SELECT 1 FROM pg_catalog.pg_foreign_data_wrapper w, aclexplode(w.fdwacl) a
+                 WHERE w.fdwname = _x AND a.grantee = _urole::regrole) THEN
+        RAISE NOTICE 'Granted USAGE on foreign data wrapper % to %', _x, _urole;
+      ELSE
+        RAISE NOTICE 'Skipped: USAGE on foreign data wrapper % - no grant option (owner: %)', _x,
+                     (SELECT pg_get_userbyid(fdwowner) FROM pg_catalog.pg_foreign_data_wrapper WHERE fdwname = _x);
+        _skipped := _skipped + 1;
+      END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      RAISE NOTICE 'Skipped: USAGE on foreign data wrapper % - %', _x, SQLERRM;
+      _skipped := _skipped + 1;
+    END;
+  END LOOP;
+  FOR _x IN SELECT btrim(x) FROM unnest(string_to_array(current_setting('role_model.langs'), ',')) AS x WHERE btrim(x) <> '' LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_language WHERE lanname = _x) THEN
+      RAISE NOTICE 'Language % does not exist - skipped', _x;
+    ELSIF NOT (SELECT lanpltrusted FROM pg_catalog.pg_language WHERE lanname = _x) THEN
+      RAISE NOTICE 'Language % is untrusted; only superusers can use it - skipped', _x;
+    ELSE
+      BEGIN
+        EXECUTE format('GRANT USAGE ON LANGUAGE %I TO %I', _x, _urole);
+        IF EXISTS (SELECT 1 FROM pg_catalog.pg_language l, aclexplode(l.lanacl) a
+                   WHERE l.lanname = _x AND a.grantee = _urole::regrole) THEN
+          RAISE NOTICE 'Granted USAGE on language % to %', _x, _urole;
+        ELSE
+          RAISE NOTICE 'Skipped: USAGE on language % - no grant option (owner: %; PUBLIC usually has USAGE on trusted languages already)', _x,
+                       (SELECT pg_get_userbyid(lanowner) FROM pg_catalog.pg_language WHERE lanname = _x);
+          _skipped := _skipped + 1;
+        END IF;
+      EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Skipped: USAGE on language % - % (on RDS it is owned by rdsadmin)', _x, SQLERRM;
+        _skipped := _skipped + 1;
+      END;
+    END IF;
+  END LOOP;
+  RAISE NOTICE 'Extra grants: EXECUTE to {%} on %, types to {%}: % item(s) skipped',
+               array_to_string(_exec, ', '), _kind, array_to_string(_types, ', '), _skipped;
+END
+$do$;
+
+\echo '== Schema USAGE'
+SELECT n.nspname AS schema, r AS role, has_schema_privilege(r, n.oid, 'USAGE') AS usage,
+       has_schema_privilege(r, n.oid, 'CREATE') AS "create"
+FROM pg_catalog.pg_namespace n
+CROSS JOIN unnest(ARRAY[:'reader_role', :'writer_role', :'app_role', 'public']) AS r
+WHERE n.nspname = ANY (string_to_array(replace(:'schemas', ' ', ''), ','))
+ORDER BY 1, 2;
+
+\echo '== EXECUTE on functions / procedures (first 50)'
+SELECT p.oid::regprocedure AS routine, CASE p.prokind WHEN 'p' THEN 'procedure' ELSE 'function' END AS kind,
+       has_function_privilege(:'reader_role', p.oid, 'EXECUTE') AS reader,
+       has_function_privilege(:'writer_role', p.oid, 'EXECUTE') AS writer,
+       has_function_privilege(:'app_role', p.oid, 'EXECUTE')    AS app,
+       has_function_privilege('public', p.oid, 'EXECUTE')       AS "public"
+FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = ANY (string_to_array(replace(:'schemas', ' ', ''), ','))
+  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.classid = 'pg_proc'::regclass
+                  AND d.objid = p.oid AND d.deptype IN ('e', 'i'))
+ORDER BY 1 LIMIT 50;
+
+\echo '== Sequences (first 50)'
+SELECT c.oid::regclass AS sequence,
+       has_sequence_privilege(:'reader_role', c.oid, 'SELECT') AS reader_select,
+       has_sequence_privilege(:'reader_role', c.oid, 'USAGE')  AS reader_usage,
+       has_sequence_privilege(:'writer_role', c.oid, 'USAGE')  AS writer_usage,
+       has_sequence_privilege(:'writer_role', c.oid, 'UPDATE') AS writer_update
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = ANY (string_to_array(replace(:'schemas', ' ', ''), ',')) AND c.relkind = 'S'
+ORDER BY 1 LIMIT 50;
+
+\echo '== Types / domains (first 50)'
+SELECT format('%I.%I', n.nspname, t.typname) AS type, t.typtype AS kind,
+       has_type_privilege(:'reader_role', t.oid, 'USAGE') AS reader,
+       has_type_privilege(:'writer_role', t.oid, 'USAGE') AS writer,
+       has_type_privilege(:'app_role', t.oid, 'USAGE')    AS app,
+       has_type_privilege('public', t.oid, 'USAGE')       AS "public"
+FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+LEFT JOIN pg_catalog.pg_class c ON c.oid = t.typrelid
+WHERE n.nspname = ANY (string_to_array(replace(:'schemas', ' ', ''), ','))
+  AND t.typtype IN ('b', 'c', 'd', 'e', 'r', 'm') AND (t.typrelid = 0 OR c.relkind = 'c')
+  AND NOT (t.typcategory = 'A' AND t.typelem <> 0)
+ORDER BY 1 LIMIT 50;
+
+\echo '== Foreign data wrappers, foreign servers and languages'
+SELECT 'wrapper' AS kind, w.fdwname AS name,
+       has_foreign_data_wrapper_privilege(:'reader_role', w.oid, 'USAGE') AS reader,
+       has_foreign_data_wrapper_privilege(:'writer_role', w.oid, 'USAGE') AS writer,
+       has_foreign_data_wrapper_privilege(:'app_role', w.oid, 'USAGE')    AS app
+FROM pg_catalog.pg_foreign_data_wrapper w
+UNION ALL
+SELECT 'server', s.srvname,
+       has_server_privilege(:'reader_role', s.oid, 'USAGE'),
+       has_server_privilege(:'writer_role', s.oid, 'USAGE'),
+       has_server_privilege(:'app_role', s.oid, 'USAGE')
+FROM pg_catalog.pg_foreign_server s
+UNION ALL
+SELECT 'language', l.lanname,
+       has_language_privilege(:'reader_role', l.oid, 'USAGE'),
+       has_language_privilege(:'writer_role', l.oid, 'USAGE'),
+       has_language_privilege(:'app_role', l.oid, 'USAGE')
+FROM pg_catalog.pg_language l WHERE l.lanpltrusted
+ORDER BY 1, 2;
+`;}
+
 function rmVals(){const g=k=>$("#rm-"+k);return{db:g("db").value.trim(),schemas:list(g("schemas").value).join(","),owner:g("owner").value.trim(),reader:g("reader").value.trim(),writer:g("writer").value.trim(),app:g("app").value.trim(),
  extend:g("mode").value==="extend",login:g("login").checked,revoke:g("revoke").checked,trunc:g("trunc").checked,
- keep:g("keep").checked,owners:list(g("owners").value).join(","),fdw:g("fdw").checked};}
+ keep:g("keep").checked,owners:list(g("owners").value).join(","),fdw:g("fdw").checked,
+ exRoles:["reader","writer","app"].filter(k=>g("ex-"+k).checked).join(","),exKind:g("exkind").value,exRevoke:g("exrevoke").checked,
+ schUsage:g("schusage").checked,rseq:g("rseq").checked,wseq:g("wseq").checked,tyRoles:["reader","writer","app"].filter(k=>g("ty-"+k).checked).join(","),
+ uRole:g("urole").value,servers:list(g("servers").value).join(","),fdws:list(g("fdws").value).join(","),langs:list(g("langs").value).join(",")};}
 const psqlLit=s=>"'"+String(s).replace(/'/g,"''")+"'";
 function rmSetName(v,val){if(val.includes("{db}")){const[pre,...rest]=val.split("{db}");const post=rest.join("{db}");return`\\set ${v} ${pre?psqlLit(pre)+" ":""}:database_name${post?" "+psqlLit(post):""}`;}return`\\set ${v} ${psqlLit(val)}`;}
 function rmDefault(v,line){return`\\if :{?${v}}\n\\else\n  ${line}\n\\endif`;}
@@ -1051,6 +1329,9 @@ function rmScriptKeep(o,w){
 -- Optional -v overrides: schemas=public,app  owner_roles=app_a,app_b (empty = auto-detect)
 --   revoke_public=true|false  writer_truncate=true|false  roles_login=true|false
 --   fdw_usage=true|false  reader_role=…  writer_role=…  app_role=…
+--   Extra grants: exec_roles=writer,app  exec_kind=both|functions|procedures  revoke_exec_public=true|false
+--   schema_usage=true|false  reader_seq=true|false  writer_seq_update=true|false  type_roles=reader,…
+--   usage_role=reader|writer|app  fdw_servers=srv1,srv2|*  fdw_wrappers=postgres_fdw  languages=plpgsql
 -- Safe to re-run. Anything the admin isn't allowed to grant is skipped with a NOTICE.
 -- =====================================================================
 \set ON_ERROR_STOP on
@@ -1070,6 +1351,7 @@ ${rmDefault("app_role",rmSetName("app_role",o.app))}
 ${rmDefault("revoke_public",`\\set revoke_public ${o.revoke}`)}
 ${rmDefault("writer_truncate",`\\set writer_truncate ${o.trunc}`)}
 ${rmDefault("roles_login",`\\set roles_login ${o.login}`)}
+${rmExtraParams(o)}
 ${rmDefault("fdw_usage",`\\set fdw_usage ${o.fdw}`)}
 
 -- 2. Validation: the database must already exist (this mode never creates one)
@@ -1150,6 +1432,8 @@ SELECT set_config('role_model.reader',   :'reader_role',     false),
        set_config('role_model.revoke',   :'revoke_public',   false),
        set_config('role_model.truncate', :'writer_truncate', false),
        set_config('role_model.fdw',      :'fdw_usage',       false) \gset rm_
+${RMX_SET}
+       set_config('role_model.owners_resolved', '', false) \gset rmx_
 
 -- 4. Database level: grants on existing objects + default privileges for each object creator
 DO $do$
@@ -1162,6 +1446,10 @@ DECLARE
   _dml    text    := CASE WHEN current_setting('role_model.truncate')::boolean
                           THEN 'INSERT, UPDATE, DELETE, TRUNCATE' ELSE 'INSERT, UPDATE, DELETE' END;
   _db     text    := current_database();
+  _rseq   boolean := current_setting('role_model.rseq')::boolean;
+  _wseq   text    := CASE WHEN current_setting('role_model.wseq')::boolean
+                          THEN 'USAGE, SELECT, UPDATE' ELSE 'USAGE, SELECT' END;
+  _schusage boolean := current_setting('role_model.schusage')::boolean;
   _dbowner text   := (SELECT pg_get_userbyid(datdba) FROM pg_catalog.pg_database WHERE datname = current_database());
   _schemas text[] := ARRAY(SELECT btrim(s) FROM unnest(string_to_array(current_setting('role_model.schemas'), ',')) AS s
                            WHERE btrim(s) <> '' AND EXISTS (SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname = btrim(s)));
@@ -1233,7 +1521,7 @@ BEGIN
 
   FOREACH _s IN ARRAY _schemas LOOP
     BEGIN
-      EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', _s, _reader);
+      IF _schusage THEN EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', _s, _reader); END IF;
     EXCEPTION WHEN insufficient_privilege THEN
       RAISE NOTICE 'Skipped: USAGE on schema % (owned by %; GRANT % TO % to fix)', _s,
         (SELECT pg_get_userbyid(nspowner) FROM pg_catalog.pg_namespace WHERE nspname = _s),
@@ -1253,8 +1541,8 @@ BEGIN
     LOOP
       BEGIN
         IF _obj.is_seq THEN
-          EXECUTE format('GRANT SELECT ON SEQUENCE %s TO %I', _obj.name, _reader);
-          EXECUTE format('GRANT USAGE, SELECT, UPDATE ON SEQUENCE %s TO %I', _obj.name, _writer);
+          IF _rseq THEN EXECUTE format('GRANT SELECT ON SEQUENCE %s TO %I', _obj.name, _reader); END IF;
+          EXECUTE format('GRANT %s ON SEQUENCE %s TO %I', _wseq, _obj.name, _writer);
         ELSE
           EXECUTE format('GRANT SELECT ON TABLE %s TO %I', _obj.name, _reader);
           EXECUTE format('GRANT %s ON TABLE %s TO %I', _dml, _obj.name, _writer);
@@ -1265,30 +1553,15 @@ BEGIN
         _skipped := _skipped + 1;
       END;
     END LOOP;
-    FOR _obj IN
-      SELECT p.oid::regprocedure::text AS name, pg_get_userbyid(p.proowner) AS obj_owner
-      FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
-      WHERE n.nspname = _s
-        AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.classid = 'pg_proc'::regclass
-                        AND d.objid = p.oid AND d.deptype IN ('e', 'i'))
-    LOOP
-      BEGIN
-        EXECUTE format('GRANT EXECUTE ON ROUTINE %s TO %I', _obj.name, _writer);
-      EXCEPTION WHEN insufficient_privilege THEN
-        RAISE NOTICE 'Skipped: routine % (owned by %; GRANT % TO % to fix)', _obj.name, _obj.obj_owner,
-                     quote_ident(_obj.obj_owner), quote_ident(current_user);
-        _skipped := _skipped + 1;
-      END;
-    END LOOP;
+    -- EXECUTE on routines: see the Extra grants block
 
     -- future objects: one set of default privileges per object-creating role
     FOREACH _o IN ARRAY _owners LOOP
       BEGIN
         EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT SELECT ON TABLES TO %I', _o, _s, _reader);
-        EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT SELECT ON SEQUENCES TO %I', _o, _s, _reader);
+        IF _rseq THEN EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT SELECT ON SEQUENCES TO %I', _o, _s, _reader); END IF;
         EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT %s ON TABLES TO %I', _o, _s, _dml, _writer);
-        EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO %I', _o, _s, _writer);
-        EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT EXECUTE ON FUNCTIONS TO %I', _o, _s, _writer);
+        EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT %s ON SEQUENCES TO %I', _o, _s, _wseq, _writer);
         RAISE NOTICE 'Default privileges set for objects created by % in schema %', _o, _s;
       EXCEPTION WHEN insufficient_privilege THEN
         RAISE NOTICE 'Skipped default privileges FOR ROLE % in % - %. Fix: GRANT % TO %', _o, _s, SQLERRM,
@@ -1334,10 +1607,12 @@ BEGIN
     EXECUTE format('ALTER ROLE %I IN DATABASE %I SET search_path = %s', _s, _db,
                    (SELECT string_agg(quote_ident(x), ', ') FROM unnest(_schemas) AS x));
   END LOOP;
+  PERFORM set_config('role_model.owners_resolved', array_to_string(_owners, ','), false);
   RAISE NOTICE 'Keep-owners role model applied to %: % item(s) skipped', _db, _skipped;
 END
 $do$;
 
+${rmExtraSQL()}
 -- 5. Verification
 \echo '== Roles and memberships'
 SELECT r.rolname AS role, r.rolcanlogin AS can_login, r.rolinherit AS inherit,
@@ -1401,6 +1676,9 @@ function rmScript(){const o=rmVals();const w=rmWarn(o);if(w.length)return{sql:""
 --   schemas=public,app  extend_model=true|false  revoke_public=true|false
 --   writer_truncate=true|false  roles_login=true|false
 --   owner_role=…  reader_role=…  writer_role=…  app_role=…
+--   Extra grants: exec_roles=writer,app  exec_kind=both|functions|procedures  revoke_exec_public=true|false
+--   schema_usage=true|false  reader_seq=true|false  writer_seq_update=true|false  type_roles=reader,…
+--   usage_role=reader|writer|app  fdw_servers=srv1,srv2|*  fdw_wrappers=postgres_fdw  languages=plpgsql
 -- Safe to re-run: every role, grant and schema is checked or idempotent.
 -- =====================================================================
 \set ON_ERROR_STOP on
@@ -1424,6 +1702,7 @@ ${rmDefault("extend_model",`\\set extend_model ${o.extend}`)}
 ${rmDefault("revoke_public",`\\set revoke_public ${o.revoke}`)}
 ${rmDefault("writer_truncate",`\\set writer_truncate ${o.trunc}`)}
 ${rmDefault("roles_login",`\\set roles_login ${o.login}`)}
+${rmExtraParams(o)}
 
 -- ---------------------------------------------------------------------
 -- 2. Validation
@@ -1554,6 +1833,8 @@ SELECT set_config('role_model.owner',    :'owner_role',      false),
        set_config('role_model.revoke',   :'revoke_public',   false),
        set_config('role_model.truncate', :'writer_truncate', false),
        set_config('role_model.version',  :'role_model_version', false) \gset rm_
+${RMX_SET}
+       set_config('role_model.owners_resolved', :'owner_role', false) \gset rmx_
 
 -- ---------------------------------------------------------------------
 -- 5. Database level: ownership, PUBLIC lockdown, schemas, grants, default privileges
@@ -1569,6 +1850,10 @@ DECLARE
   _dml    text    := CASE WHEN current_setting('role_model.truncate')::boolean
                           THEN 'INSERT, UPDATE, DELETE, TRUNCATE' ELSE 'INSERT, UPDATE, DELETE' END;
   _db     text    := current_database();
+  _rseq   boolean := current_setting('role_model.rseq')::boolean;
+  _wseq   text    := CASE WHEN current_setting('role_model.wseq')::boolean
+                          THEN 'USAGE, SELECT, UPDATE' ELSE 'USAGE, SELECT' END;
+  _schusage boolean := current_setting('role_model.schusage')::boolean;
   _owner_oid oid  := (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = current_setting('role_model.owner'));
   _schemas text[] := ARRAY(SELECT btrim(s) FROM unnest(string_to_array(current_setting('role_model.schemas'), ',')) AS s
                            WHERE btrim(s) <> '');
@@ -1653,7 +1938,7 @@ BEGIN
 
     -- existing objects, one by one so an object we may not grant on is reported and skipped
     BEGIN
-      EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', _s, _reader);
+      IF _schusage THEN EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', _s, _reader); END IF;
     EXCEPTION WHEN insufficient_privilege THEN
       RAISE NOTICE 'Skipped (no permission): USAGE on schema % - %', _s, SQLERRM;
     END;
@@ -1666,8 +1951,8 @@ BEGIN
     LOOP
       BEGIN
         IF _obj.is_seq THEN
-          EXECUTE format('GRANT SELECT ON SEQUENCE %s TO %I', _obj.name, _reader);
-          EXECUTE format('GRANT USAGE, SELECT, UPDATE ON SEQUENCE %s TO %I', _obj.name, _writer);
+          IF _rseq THEN EXECUTE format('GRANT SELECT ON SEQUENCE %s TO %I', _obj.name, _reader); END IF;
+          EXECUTE format('GRANT %s ON SEQUENCE %s TO %I', _wseq, _obj.name, _writer);
         ELSE
           EXECUTE format('GRANT SELECT ON TABLE %s TO %I', _obj.name, _reader);   -- includes views
           EXECUTE format('GRANT %s ON TABLE %s TO %I', _dml, _obj.name, _writer);
@@ -1677,25 +1962,12 @@ BEGIN
                      _obj.name, _obj.obj_owner, _obj.obj_owner, current_user;
       END;
     END LOOP;
-    FOR _obj IN
-      SELECT p.oid::regprocedure::text AS name, pg_get_userbyid(p.proowner) AS obj_owner
-      FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
-      WHERE n.nspname = _s
-        AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d
-                        WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')
-    LOOP
-      BEGIN
-        EXECUTE format('GRANT EXECUTE ON ROUTINE %s TO %I', _obj.name, _writer);
-      EXCEPTION WHEN insufficient_privilege THEN
-        RAISE NOTICE 'Skipped (no permission): routine % (owned by %)', _obj.name, _obj.obj_owner;
-      END;
-    END LOOP;
+    -- EXECUTE on routines: see the Extra grants block
     -- future objects created by the owner
     EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT SELECT ON TABLES TO %I', _owner, _s, _reader);
-    EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT SELECT ON SEQUENCES TO %I', _owner, _s, _reader);
+    IF _rseq THEN EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT SELECT ON SEQUENCES TO %I', _owner, _s, _reader); END IF;
     EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT %s ON TABLES TO %I', _owner, _s, _dml, _writer);
-    EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO %I', _owner, _s, _writer);
-    EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT EXECUTE ON FUNCTIONS TO %I', _owner, _s, _writer);
+    EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT %s ON SEQUENCES TO %I', _owner, _s, _wseq, _writer);
     RAISE NOTICE 'Grants and default privileges applied in schema %', _s;
   END LOOP;
 
@@ -1717,6 +1989,7 @@ BEGIN
 END
 $do$;
 
+${rmExtraSQL()}
 -- ---------------------------------------------------------------------
 -- 6. Verification
 -- ---------------------------------------------------------------------

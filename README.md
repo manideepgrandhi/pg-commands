@@ -46,6 +46,23 @@ Every builder combination, recipe, security item that can run locally, role buil
 
 <img src="screenshots/mobile.png" alt="Mobile view" width="300">
 
+## v2.4: Extra grants (EXECUTE and USAGE) in the role model
+
+A new **Extra grants** fieldset in the Database role model panel works in create, extend and keep-current-owners modes:
+
+- **GRANT EXECUTE** per role (writer and app_user on by default, reader optional) on functions, procedures (PG11+) or both, granted routine by routine (extension members skipped), plus `ALTER DEFAULT PRIVILEGES FOR ROLE <owner> IN SCHEMA … GRANT EXECUTE ON FUNCTIONS` (this also covers procedures; `ON ROUTINES` isn't valid for default privileges)
+- optional **Revoke EXECUTE from PUBLIC** on existing routines plus `ALTER DEFAULT PRIVILEGES FOR ROLE <owner> REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`
+- explicit toggles for schema USAGE, reader `SELECT` on sequences and writer `UPDATE` on sequences (writer always gets `USAGE, SELECT`), applied to existing sequences and default privileges
+- optional USAGE on types and domains (with default privileges `ON TYPES`), and on named foreign servers (`*` = all), foreign data wrappers and languages for a chosen role. If the admin has no grant option, it's skipped with a NOTICE rather than reported as granted.
+- every option is also a `-v` override (`exec_roles`, `exec_kind`, `revoke_exec_public`, `schema_usage`, `reader_seq`, `writer_seq_update`, `type_roles`, `usage_role`, `fdw_servers`, `fdw_wrappers`, `languages`)
+- new verification sections: `has_schema_privilege`, `has_function_privilege`, `has_sequence_privilege`, `has_type_privilege`, `has_server_privilege`, `has_foreign_data_wrapper_privilege`, `has_language_privilege`
+
+The simple Security role builder also gets an optional **GRANT EXECUTE on functions and procedures** checkbox.
+
+Grants are additive: re-running with an option turned off doesn't revoke what an earlier run granted.
+
+![Extra grants](screenshots/desktop-role-model-extra.png)
+
 ## v2.3: Keep current owners (role model)
 
 Turn on **Keep current owners** in the Database role model panel to add reader / writer / app_user to an *existing* database (e.g. Aurora PostgreSQL) without changing who owns anything:
