@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pgc-version" content="2.3">
+<meta name="pgc-version" content="2.5">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>pg-commands · pg_dump, pg_restore & psql builder</title>
 <meta name="description" content="Interactive command builder and recipes for pg_dump, pg_restore and psql. Runs fully in your browser.">
@@ -160,11 +160,21 @@ fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
   <div class="grid">
     <div class="field"><label for="rb-type">Role type</label><select id="rb-type"><option value="ro">read-only (SELECT)</option><option value="rw">read-write (SELECT, INSERT, UPDATE, DELETE)</option></select><div class="tip">Read-write gets DML and sequence usage, but no DDL or TRUNCATE.</div></div>
     <div class="field"><label for="rb-role">Group role name</label><input type="text" id="rb-role" value="app_readonly" autocomplete="off" spellcheck="false"><div class="tip">NOLOGIN role that holds the grants.</div></div>
-    <div class="field"><label for="rb-db">Database</label><input type="text" id="rb-db" value="appdb" autocomplete="off" spellcheck="false"><div class="tip">Gets GRANT CONNECT.</div></div>
+    <div class="field"><label for="rb-db">Database</label><input type="text" id="rb-db" value="appdb" autocomplete="off" spellcheck="false"><div class="tip">Gets GRANT CONNECT (more databases below).</div></div>
     <div class="field"><label for="rb-schemas">Schemas</label><input type="text" id="rb-schemas" value="app" autocomplete="off" spellcheck="false"><div class="tip">Comma-separated, e.g. app, reporting.</div></div>
     <div class="field"><label for="rb-owner">Owner of future tables (optional)</label><input type="text" id="rb-owner" value="app_owner" autocomplete="off" spellcheck="false"><div class="tip">Used in ALTER DEFAULT PRIVILEGES FOR ROLE.</div></div>
     <div class="field"><label for="rb-login">Login user to add (optional)</label><input type="text" id="rb-login" placeholder="alice" autocomplete="off" spellcheck="false"><div class="tip">Created without a password; set one with \password.</div></div>
   </div>
+  <h4 style="margin:14px 0 6px">Database CONNECT</h4>
+  <div class="grid">
+    <div class="field"><label for="rb-dbs">More databases for CONNECT</label><input type="text" id="rb-dbs" placeholder="salesdb, reportdb" autocomplete="off" spellcheck="false"><div class="tip">Comma-separated, added to the database above. One GRANT per database; databases are cluster-wide, so these run from any database.</div></div>
+    <div class="field"><label for="rb-connto">CONNECT granted to</label><input type="text" id="rb-connto" placeholder="empty = the group role" autocomplete="off" spellcheck="false"><div class="tip">Comma-separated roles/users. Members of the group role inherit it.</div></div>
+  </div>
+  <div class="check"><input type="checkbox" id="rb-revconn"><div><label for="rb-revconn" class="mono" style="font-size:13px">REVOKE CONNECT … FROM PUBLIC</label><div class="tip">Off by default. Afterwards only roles with an explicit CONNECT grant (plus owners/superusers) can connect; check app and monitoring users first.</div></div></div>
+  <h4 style="margin:14px 0 6px">Predefined (system) roles</h4>
+  <div class="field"><label for="rb-systo">Grant checked roles to</label><input type="text" id="rb-systo" placeholder="empty = the group role" autocomplete="off" spellcheck="false"><div class="tip">Comma-separated roles/users. Each grant is skipped with a NOTICE if the predefined role doesn't exist on that server version.</div></div>
+  <div class="grid" id="rb-sys"></div>
+  <div class="tip" style="margin-top:6px"><code>pg_database_owner</code> is not grantable (membership is implicit for the database owner), so it is not offered.</div>
   <div class="term" style="margin-top:12px"><div class="termbar"><span class="mono tip">role.sql</span><span class="sp"></span><button class="small primary" id="rb-copy">Copy SQL</button></div><pre class="cmd sqlout" id="rb-out" aria-live="polite"></pre></div>
   <div class="warns" id="rb-warn" aria-live="polite"></div>
 </div>
@@ -237,7 +247,7 @@ fieldset.privset{margin:0}fieldset.privset .chips{gap:10px}
 </main>
 <footer><div class="wrap">
   <strong>Also see:</strong> <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">pg-dump-wrapper</a> — Manideep's <code>pg_dump</code>/<code>psql</code> wrapper scripts for scheduled, logged backups and runs.<br>
-  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.3. Always review a command before running it, especially against production.
+  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.5. Always review a command before running it, especially against production.
 </div></footer>
 <div class="toast" id="toast" role="status"></div>
 
@@ -995,6 +1005,55 @@ $("#scards").addEventListener("click",e=>{const i=e.target.dataset.scopy;if(i!==
 const RESERVED=new Set("all analyse analyze and any array as asc asymmetric authorization binary both case cast check collate column concurrently constraint create cross current_catalog current_date current_role current_schema current_time current_timestamp current_user default deferrable desc distinct do else end except false fetch for foreign freeze from full grant group having ilike in initially inner intersect into is isnull join lateral leading left like limit localtime localtimestamp natural not notnull null offset on only or order outer overlaps placing primary references returning right select session_user similar some symmetric system_user table tablesample then to trailing true union unique user using variadic verbose when where window with public none".split(" "));
 const qi=s=>/^[a-z_][a-z0-9_$]*$/.test(s)&&!RESERVED.has(s)?s:'"'+s.replace(/"/g,'""')+'"';
 const ql=s=>"'"+String(s).replace(/'/g,"''")+"'";
+const SYSROLES=[
+ ["pg_read_all_data",14,"SELECT on all tables/views/sequences + USAGE on all schemas, in every database. Bypasses table grants (not RLS)."],
+ ["pg_write_all_data",14,"INSERT/UPDATE/DELETE on all tables + USAGE on all schemas, in every database."],
+ ["pg_monitor",10,"Monitoring bundle: pg_read_all_settings + pg_read_all_stats + pg_stat_scan_tables."],
+ ["pg_read_all_settings",10,"Read all config settings, even superuser-only ones."],
+ ["pg_read_all_stats",10,"Read all pg_stat_* views, including other users' queries."],
+ ["pg_stat_scan_tables",10,"Run monitoring functions that take ACCESS SHARE locks (pgstattuple etc.)."],
+ ["pg_signal_backend",9.6,"Cancel / terminate other non-superuser sessions."],
+ ["pg_checkpoint",15,"Run CHECKPOINT."],
+ ["pg_maintain",17,"VACUUM, ANALYZE, REINDEX, REFRESH MATVIEW, CLUSTER, LOCK on all relations (PG17+ only; not in 16)."],
+ ["pg_use_reserved_connections",16,"Use reserved_connections slots."],
+ ["pg_create_subscription",16,"CREATE SUBSCRIPTION (with CREATE on the database)."],
+ ["pg_read_server_files",11,"Read server files via COPY/pg_read_file.",1],
+ ["pg_write_server_files",11,"Write server files via COPY.",1],
+ ["pg_execute_server_program",11,"Run server programs via COPY … PROGRAM.",1]];
+$("#rb-sys").innerHTML=SYSROLES.map(([n,v,d,na])=>`<div class="check"><input type="checkbox" id="rb-sys-${n}" data-sys="${n}"><div><label for="rb-sys-${n}" class="mono" style="font-size:13px">${n} <span class="tag">PG${v}+</span>${na?' <span class="tag k-rds">not on RDS/Aurora</span>':""}</label><div class="tip">${esc(d)}</div></div></div>`).join("")+
+ `<div class="check"><input type="checkbox" id="rb-sys-rds" data-sys="rds_superuser"><div><label for="rb-sys-rds" class="mono" style="font-size:13px">rds_superuser <span class="tag k-rds">RDS/Aurora only</span></label><div class="tip">⚠ Near-full admin: CREATEROLE/CREATEDB powers, all rds_* roles, can grant itself into any role. Real SUPERUSER doesn't exist on RDS/Aurora. Only for DBA accounts.</div></div></div>`+
+ `<div class="check"><input type="checkbox" id="rb-sys-su"><div><label for="rb-sys-su" class="mono" style="font-size:13px">ALTER ROLE … SUPERUSER <span class="tag">self-managed only</span></label><div class="tip">⚠ Bypasses every permission check. Fails on RDS/Aurora (guarded: skipped when rds_superuser exists). Must be run by a superuser.</div></div></div>`;
+function extraSQL(role,db,w){
+ const v=k=>$("#rb-"+k).value.trim();const L=[];
+ const dbs=[...new Set([db,...list(v("dbs"))].filter(Boolean))];
+ const cto=list(v("connto"));const connTo=cto.length?cto:[role];
+ const sto=list(v("systo"));const sysTo=sto.length?sto:[role];
+ [...cto,...sto,...list(v("dbs"))].forEach(n=>{if(n.length>63)w.push(`Name longer than 63 bytes will be truncated: ${n}`);});
+ L.push("",`-- database CONNECT (databases are cluster-level objects: run once, from any database)`);
+ dbs.forEach(d=>{if($("#rb-revconn").checked)L.push(`REVOKE CONNECT ON DATABASE ${qi(d)} FROM PUBLIC;`);L.push(`GRANT CONNECT ON DATABASE ${qi(d)} TO ${connTo.map(qi).join(", ")};`);});
+ if($("#rb-revconn").checked)w.push("REVOKE CONNECT FROM PUBLIC: any user without an explicit CONNECT grant (or membership of a role that has one) will be locked out of "+dbs.join(", ")+".");
+ const sys=[...document.querySelectorAll("#rb-sys input[data-sys]:checked")].map(e=>e.dataset.sys);const su=$("#rb-sys-su").checked;
+ if(sys.length||su){
+  L.push("",`-- predefined roles (skipped with a NOTICE when the role doesn't exist on this version)`,
+   `-- PG16+: the grantor needs ADMIN OPTION on the predefined role (a superuser has it). A CREATEROLE-only admin gets a WARNING per role instead.`,
+   `-- PG13-15: CREATEROLE is enough. On RDS/Aurora run as the master user (rds_superuser).`,
+   `DO $$`,`DECLARE`,`  r text;`,`  g text;`,`BEGIN`,
+   `  FOREACH g IN ARRAY ARRAY[${sysTo.map(ql).join(", ")}] LOOP`,
+   `    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = g) THEN RAISE EXCEPTION 'grantee % does not exist', g; END IF;`);
+  if(sys.length)L.push(`    FOREACH r IN ARRAY ARRAY[${sys.map(ql).join(", ")}] LOOP`,
+   `      IF EXISTS (SELECT FROM pg_roles WHERE rolname = r) THEN`,`        BEGIN`,`          EXECUTE format('GRANT %I TO %I', r, g);`,`          RAISE NOTICE 'granted % to %', r, g;`,`        EXCEPTION WHEN insufficient_privilege THEN`,`          RAISE WARNING 'could not grant % to %: %', r, g, SQLERRM`,`            USING HINT = 'PG16+: CREATEROLE alone is not enough; the grantor needs ADMIN OPTION on the role (or superuser).';`,`        END;`,
+   `      ELSE`,`        RAISE NOTICE 'skipped %: not available on this server (version %)', r, current_setting('server_version');`,`      END IF;`,`    END LOOP;`);
+  if(su)L.push(`    IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'rds_superuser') THEN`,`      RAISE NOTICE 'skipped SUPERUSER for %: not available on RDS/Aurora', g;`,`    ELSE`,`      EXECUTE format('ALTER ROLE %I SUPERUSER', g);`,`      RAISE NOTICE 'made % SUPERUSER', g;`,`    END IF;`);
+  L.push(`  END LOOP;`,`END`,`$$;`);
+  if(sys.some(n=>/server_(files|program)/.test(n)))w.push("pg_read_server_files / pg_write_server_files / pg_execute_server_program are not grantable on RDS/Aurora (they'll fail there). On self-managed servers they give OS-level file/program access.");
+  if(sys.includes("rds_superuser"))w.push("rds_superuser is effectively full admin on RDS/Aurora. Grant it only to DBA accounts, never to app roles.");
+  if(su)w.push("SUPERUSER bypasses all permission checks. Self-managed Postgres only; skipped on RDS/Aurora.");
+  if(sys.some(n=>/_all_data$/.test(n)))w.push("pg_read_all_data / pg_write_all_data apply to every schema in every database, not just the schemas above.");
+ }
+ L.push("",`-- verify CONNECT`,`SELECT d.datname, r.rolname, has_database_privilege(r.oid, d.oid, 'CONNECT') AS can_connect`,`FROM pg_database d CROSS JOIN pg_roles r`,`WHERE d.datname IN (${dbs.map(ql).join(", ")}) AND r.rolname IN (${[...new Set([...connTo,"public"])].filter(x=>x!=="public").map(ql).join(", ")})`,`ORDER BY 1, 2;`);
+ if(sys.length)L.push("",`-- verify predefined role membership`,`SELECT g.rolname AS grantee, r.rolname AS predefined_role,`,`       pg_has_role(g.oid, r.oid, 'MEMBER') AS is_member, pg_has_role(g.oid, r.oid, 'USAGE') AS inherits`,`FROM pg_roles g CROSS JOIN pg_roles r`,`WHERE g.rolname IN (${sysTo.map(ql).join(", ")}) AND r.rolname IN (${sys.map(ql).join(", ")})`,`ORDER BY 1, 2;`);
+ if(su)L.push("",`SELECT rolname, rolsuper FROM pg_roles WHERE rolname IN (${sysTo.map(ql).join(", ")});`);
+ return L;}
 function roleSQL(){
  const v=k=>$("#rb-"+k).value.trim();const role=v("role"),db=v("db"),owner=v("owner"),login=v("login"),rw=$("#rb-type").value==="rw";
  const schemas=list(v("schemas"));const w=[];
@@ -1006,11 +1065,12 @@ function roleSQL(){
  const L=[`-- ${rw?"Read-write":"Read-only"} role ${role} on database ${db}, schemas: ${schemas.join(", ")}`,
   `-- Connect to ${db} as an admin (superuser, or the RDS master user), or as a CREATEROLE user that owns ${db}${owner?` and is a member of ${owner}`:""}.`,
   `DO $$`,`BEGIN`,`  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = ${ql(role)}) THEN`,`    CREATE ROLE ${R} NOLOGIN;`,`  END IF;`,`END`,`$$;`,
-  `GRANT CONNECT ON DATABASE ${qi(db)} TO ${R};`];
+];
  schemas.forEach(s=>{const S=qi(s);L.push("",`-- schema ${s}`,`GRANT USAGE ON SCHEMA ${S} TO ${R};`,`GRANT ${tp} ON ALL TABLES IN SCHEMA ${S} TO ${R};`,`GRANT ${sp} ON ALL SEQUENCES IN SCHEMA ${S} TO ${R};`,
   `ALTER DEFAULT PRIVILEGES${fr} IN SCHEMA ${S} GRANT ${tp} ON TABLES TO ${R};`,`ALTER DEFAULT PRIVILEGES${fr} IN SCHEMA ${S} GRANT ${sp} ON SEQUENCES TO ${R};`);});
  if(!owner)w.push("No owner given: default privileges will only cover tables created later by the role running this script.");
  if(login){L.push("",`-- login user (set the password interactively in psql:  \\password ${login})`,`DO $$`,`BEGIN`,`  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = ${ql(login)}) THEN`,`    CREATE ROLE ${qi(login)} LOGIN;`,`  END IF;`,`END`,`$$;`,`GRANT ${R} TO ${qi(login)};`);}
+ L.push(...extraSQL(role,db,w));
  L.push("",`-- verify`,`SELECT n.nspname AS schema,`,`       has_schema_privilege(${ql(role)}, n.oid, 'USAGE') AS schema_usage,`,`       count(c.oid) AS tables,`,
   `       count(c.oid) FILTER (WHERE has_table_privilege(${ql(role)}, c.oid, 'SELECT')) AS can_select,`,`       count(c.oid) FILTER (WHERE has_table_privilege(${ql(role)}, c.oid, 'INSERT')) AS can_insert`,
   `FROM pg_namespace n`,`LEFT JOIN pg_class c ON c.relnamespace = n.oid AND c.relkind IN ('r', 'p', 'v', 'm')`,`WHERE n.nspname IN (${schemas.map(ql).join(", ")})`,`GROUP BY n.nspname, n.oid`,`ORDER BY 1;`);

@@ -58,3 +58,19 @@ Turn on **Keep current owners** in the Database role model panel to add reader /
 - safe to re-run; the verification step shows owners (unchanged), effective privileges and default ACLs per owner
 
 ![Keep current owners](screenshots/desktop-role-model-keep.png)
+
+## v2.5: Database CONNECT and predefined roles (role builder)
+
+v2.4 (EXECUTE/USAGE "Extra grants") was reverted; the role model is back to v2.3 behavior.
+
+The Security role builder now has:
+
+- **Database CONNECT**: extra comma-separated databases (plus the main one), a list of roles/users that get CONNECT (default: the group role), and an optional `REVOKE CONNECT … FROM PUBLIC` (off by default). Names are quoted when needed (`"Sales DB"`). Databases are cluster-level objects, so the GRANTs run once from any database.
+- **Predefined roles** as checkboxes, each with its minimum version: `pg_read_all_data`, `pg_write_all_data` (14+), `pg_monitor`, `pg_read_all_settings`, `pg_read_all_stats`, `pg_stat_scan_tables` (10+), `pg_signal_backend`, `pg_checkpoint` (15+), `pg_maintain` (17+), `pg_use_reserved_connections`, `pg_create_subscription` (16+), and `pg_read_server_files` / `pg_write_server_files` / `pg_execute_server_program` (not on RDS/Aurora). `pg_database_owner` isn't grantable and is not offered.
+- **rds_superuser** (RDS/Aurora, with a warning) and **ALTER ROLE … SUPERUSER** (self-managed only; skipped automatically when `rds_superuser` exists).
+- Grants run in a DO block that checks `pg_roles`, so roles missing on older versions are skipped with a NOTICE. On PG16+ a CREATEROLE-only admin can't grant predefined roles without ADMIN OPTION; each such grant becomes a WARNING with a hint instead of aborting. On PG13–15 CREATEROLE is enough.
+- Verify queries: `has_database_privilege(…, 'CONNECT')` per database/role and `pg_has_role` membership for each predefined role.
+
+Tested on PostgreSQL 13, 16 and 17 as a CREATEROLE admin and as superuser.
+
+![Role builder v2.5](screenshots/desktop-role-builder-v25.png)
