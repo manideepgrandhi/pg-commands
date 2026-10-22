@@ -7,6 +7,10 @@ It's one self-contained `index.html` with no build step, no CDNs and no server, 
 
 ![Desktop](screenshots/desktop.png)
 
+## Theme and shared bar (v2.7)
+
+The page carries an inlined copy of the shared header bar, footer and theme toggle between `<!--mg:head inline-->` / `<!--mg:body inline-->` markers. Do not edit inside the markers. Edit `assets/mg-shared.css` / `mg-shared.js` in manideepgrandhi.github.io and run `scripts/sync-mg-shared.py` there. The light palette is the `html[data-theme=light]` block of CSS variables.
+
 ## Layout (v2.6)
 The page is split into groups with a sidebar (a scrolling sub-tab bar on mobile), a sticky header with group tabs, and a **Jump to…** search (press `/`). Every tool has a deep link that survives reloads, and the last tool you used is reopened:
 
@@ -89,6 +93,7 @@ Tested on PostgreSQL 13, 16 and 17 as a CREATEROLE admin and as superuser.
 ![Role builder v2.5](screenshots/desktop-role-builder-v25.png)
 
 ## Changelog
+- **2.7** Light and dark themes (light / dark / auto-follow-system), stored in the shared `mg-theme` key used by all of Manideep's sites. Slim shared site bar and footer (inlined copy of `manideepgrandhi.github.io/assets/mg-shared.*`, synced by `scripts/sync-mg-shared.py` in that repo). No data, storage-key or feature changes.
 - **2.6** Reorganized into grouped navigation (sidebar + group tabs + jump search), hash deep links, links to Manideep's other projects. No features removed; saved profiles and settings are kept.
 - **2.5** CONNECT on extra databases, predefined system role checkboxes, rds_superuser option.
 - **2.3** Keep current owners option. **2.2** Admin tools. **2.1** Role model generator.
