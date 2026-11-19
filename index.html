@@ -2,7 +2,7 @@
 <html lang="en" data-mg-site="pg-commands" data-mg-here="/pg-commands/">
 <head>
 <meta charset="utf-8">
-<meta name="pgc-version" content="2.7">
+<meta name="pgc-version" content="2.9">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>pg-commands · pg_dump, pg_restore & psql builder</title>
 <meta name="description" content="Interactive command builder and recipes for pg_dump, pg_restore and psql. Runs fully in your browser.">
@@ -46,6 +46,22 @@ button.small{padding:3px 8px;font-size:12px}
 .presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .presets button.small{font-family:ui-monospace,Menlo,Consolas,monospace}
 .presets button:disabled{opacity:.45;cursor:not-allowed}
+.lab{display:flex;align-items:center;gap:6px}
+button.q{padding:0;width:16px;height:16px;min-width:16px;border-radius:50%;font:700 11px/14px system-ui,sans-serif;color:var(--muted);background:transparent;margin-left:6px;vertical-align:middle}
+.lab button.q{margin-left:0}
+button.q:hover,button.q[aria-expanded=true]{color:var(--fg);background:var(--panel2)}
+.hint{margin-top:2px}
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px 14px;margin-top:12px}
+.logrow{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-start;margin-top:12px}
+.logrow .field{flex:1 1 260px}
+.logrow>.check{padding-top:22px}
+.logrow>.check:first-child{padding-top:0;align-self:flex-start}
+details.adv{margin:0 0 14px}
+details.adv>summary{cursor:pointer;font-weight:600;font-size:14px;padding:8px 2px;color:var(--blue)}
+details.adv[open]>summary{margin-bottom:8px}
+fieldset.mini{padding:8px 12px}
+fieldset.mini.active legend::after{content:" (active: other options are ignored)";color:var(--amber);font-weight:400}
+select.presetsel{width:auto;max-width:100%;padding:3px 6px;font:12px ui-monospace,Menlo,Consolas,monospace}
 [hidden]{display:none!important}
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;flex-wrap:wrap}
 .tabs button{border-radius:8px 8px 0 0;border-bottom:none;font-family:var(--mono);font-size:14px;background:transparent}
@@ -644,7 +660,7 @@ window.MGSearch={open:open,close:close,load:load,catalog:CATALOG,siteScore:siteS
 </main></div>
 <footer><div class="wrap">
   <strong>Also see:</strong> <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">pg-dump-wrapper</a> — Manideep's <code>pg_dump</code>/<code>psql</code> wrapper scripts for scheduled, logged backups and runs.<br>
-  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.8. Always review a command before running it, especially against production.
+  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.9. Always review a command before running it, especially against production.
 </div></footer>
 <div class="toast" id="toast" role="status"></div>
 
@@ -675,53 +691,75 @@ const CONN=[
  {k:"user",l:"User",f:"-U",t:"text",ph:"postgres",tip:"Role to connect as. Password comes from ~/.pgpass or PGPASSWORD."},
  {k:"db",l:"Database",f:"-d",t:"text",ph:"mydb",tip:"pg_dump/psql: database to use. pg_restore: target database (with --create: the maintenance DB, e.g. postgres)."}
 ];
+/* Shared field definitions for pg_dump and pg_restore. A tool takes a field with F(key, overrides): the
+   overrides carry that tool's own label/tip/placeholder. Keys are the saved-state keys (pgc.state[tool][key]). */
+const FD={
+ jobs:{k:"jobs",l:"Parallel jobs",f:"-j",t:"number",ph:"4"},
+ v:{k:"v",l:"Verbose",f:"-v",t:"check",tip:"Print progress to stderr."},
+ logon:{k:"logon",l:"Log to file",t:"check",row:"log",tip:"Save the verbose output to a file (2> file). Ticking this also ticks Verbose; unticking Verbose turns it off again."},
+ logf:{k:"logf",l:"Log file name",t:"text",row:"log"},
+ logtee:{k:"logtee",l:"Also show on screen (tee)",t:"check",row:"log"},
+ n:{k:"n",f:"-n",t:"multi"},
+ tt:{k:"tt",f:"-t",t:"multi"},
+ content:{k:"content",t:"select",def:""},
+ clean:{k:"clean",l:"--clean",f:"--clean",t:"check"},
+ ifex:{k:"ifex",l:"--if-exists",f:"--if-exists",t:"check"},
+ create:{k:"create",l:"--create",f:"--create",t:"check"},
+ noowner:{k:"noowner",l:"--no-owner",f:"--no-owner",t:"check"},
+ nopriv:{k:"nopriv",l:"--no-privileges",f:"--no-privileges",t:"check"}
+};
+const F=(k,o)=>Object.assign({},FD[k],o);
+// groups: [title, fields, "adv"?]. "adv" groups sit inside the collapsed Advanced options block.
 const T={
 pg_dump:{groups:[
- ["Output",[
+ ["Common",[
   {k:"fmt",l:"Format",f:"-F",t:"select",def:"c",opts:[["c","-Fc  custom (recommended)"],["d","-Fd  directory (parallel)"],["p","-Fp  plain SQL"],["t","-Ft  tar"]],tip:"Custom (-Fc) is compressed and lets pg_restore pick/reorder objects. Directory allows -j. Plain = SQL for psql."},
   {k:"file",l:"Output file",f:"-f",t:"text",ph:"{db}_{date}.dump",presets:true,tip:"Tokens replaced for you: {db}, {date} (YYYYMMDD), {time} (HHMM), {host}, {schema} (first -n), {table} (first -t; schema.table becomes schema_table). Required for -Fd (a new directory)."},
-  {k:"jobs",l:"Parallel jobs",f:"-j",t:"number",ph:"4",tip:"Only with -Fd. Opens jobs+1 connections."},
-  {k:"Z",l:"Compression",f:"-Z",t:"text",ph:"0-9",tip:"0-9 works on 13+. PG16+ also accepts gzip:9, lz4, zstd. Not supported with -Ft."},
-  {k:"v",l:"Verbose",f:"-v",t:"check",tip:"Print progress to stderr — handy for logs."},
-  {k:"logf",l:"Log file",t:"text",def:"{db}_{date}_dump.log",ph:"{db}_{date}_dump.log",tip:"Saves the verbose output here (2> file). Same tokens as the output file. Empty = no log file, just -v."},
-  {k:"logtee",l:"Also show on screen (tee)",t:"check",tip:"Watch progress and keep the file: 2>&1 | tee file. Not available when the dump itself goes to stdout (no -f)."}]],
+  F("content",{l:"What to dump",opts:[["","schema + data"],["--schema-only","--schema-only (DDL only)"],["--data-only","--data-only (rows only)"]],tip:"-s / -a. Mutually exclusive."}),
+  F("v"),
+  F("noowner",{tip:"Don't emit ALTER OWNER. Good when restoring as a different user."}),
+  F("logon"),
+  F("logf",{def:"{db}_{date}_dump.log",ph:"{db}_{date}_dump.log",tip:"Saves the verbose output here (2> file). Same tokens as the output file. Empty = no log file, just -v."}),
+  F("logtee",{tip:"Watch progress and keep the file: 2>&1 | tee file. Not available when the dump itself goes to stdout (no -f)."})]],
  ["Filter objects",[
-  {k:"n",l:"Include schemas",f:"-n",t:"multi",ph:"sales, hr",tip:"One -n per entry; patterns like 'app_*' allowed."},
+  F("n",{l:"Include schemas",ph:"sales, hr",tip:"One -n per entry; patterns like 'app_*' allowed."}),
   {k:"N",l:"Exclude schemas",f:"-N",t:"multi",ph:"tmp",tip:"Skip these schemas."},
-  {k:"tt",l:"Include tables",f:"-t",t:"multi",ph:"sales.orders",tip:"One -t per entry. Schema-qualify to be precise."},
+  F("tt",{l:"Include tables",ph:"sales.orders",tip:"One -t per entry. Schema-qualify to be precise."}),
   {k:"TT",l:"Exclude tables",f:"-T",t:"multi",ph:"public.big_log",tip:"Skip these tables entirely."},
-  {k:"xtd",l:"Exclude table data",f:"--exclude-table-data",t:"multi",ph:"public.audit_log",tip:"Keep the table definition, skip its rows."}]],
- ["Content",[
-  {k:"content",l:"What to dump",t:"select",def:"",opts:[["","schema + data"],["--schema-only","--schema-only (DDL only)"],["--data-only","--data-only (rows only)"]],tip:"-s / -a. Mutually exclusive."},
+  {k:"xtd",l:"Exclude table data",f:"--exclude-table-data",t:"multi",ph:"public.audit_log",tip:"Keep the table definition, skip its rows."}],"adv"],
+ ["More options",[
+  F("jobs",{tip:"Only with -Fd. Opens jobs+1 connections."}),
+  {k:"Z",l:"Compression",f:"-Z",t:"text",ph:"0-9",tip:"0-9 works on 13+. PG16+ also accepts gzip:9, lz4, zstd. Not supported with -Ft."},
   {k:"section",l:"Section",f:"--section",t:"select",def:"",opts:[["","all sections"],["pre-data","pre-data"],["data","data"],["post-data","post-data"]],tip:"pre-data = tables etc., data = rows, post-data = indexes, constraints, triggers."},
-  {k:"noowner",l:"--no-owner",f:"--no-owner",t:"check",tip:"Don't emit ALTER OWNER. Good when restoring as a different user."},
-  {k:"nopriv",l:"--no-privileges",f:"--no-privileges",t:"check",tip:"Skip GRANT/REVOKE (-x)."},
-  {k:"clean",l:"--clean",f:"--clean",t:"check",tip:"Plain format only: emit DROP before CREATE."},
-  {k:"ifex",l:"--if-exists",f:"--if-exists",t:"check",tip:"Use DROP … IF EXISTS. Requires --clean."},
-  {k:"create",l:"--create",f:"--create",t:"check",tip:"Plain format: include CREATE DATABASE and \\connect."}]]
+  F("nopriv",{tip:"Skip GRANT/REVOKE (-x)."}),
+  F("clean",{tip:"Plain format only: emit DROP before CREATE."}),
+  F("ifex",{tip:"Use DROP … IF EXISTS. Requires --clean."}),
+  F("create",{tip:"Plain format: include CREATE DATABASE and \\connect."})],"adv"]
 ]},
 pg_restore:{groups:[
- ["Input",[
+ ["Common",[
   {k:"in",l:"Dump file / directory",t:"text",ph:"mydb_20261016.dump",tip:"A -Fc, -Fd or -Ft archive. Plain .sql files go through psql -f instead."},
-  {k:"jobs",l:"Parallel jobs",f:"-j",t:"number",ph:"4",tip:"Parallel restore (needs a file/dir, not stdin). Can't combine with --single-transaction."},
-  {k:"l",l:"-l list contents only",f:"-l",t:"check",tip:"Print the archive's table of contents; nothing is restored."},
-  {k:"lout",l:"Save list to",t:"text",ph:"restore.list",tip:"With -l: redirect the list to this file, edit it, then use -L."},
-  {k:"L",l:"Use list file",f:"-L",t:"text",ph:"restore.list",tip:"Restore only entries in this (edited) list; comment lines out with ;"},
-  {k:"v",l:"Verbose",f:"-v",t:"check",tip:"Print progress to stderr."},
-  {k:"logf",l:"Log file",t:"text",def:"{db}_{date}_restore.log",ph:"{db}_{date}_restore.log",tip:"Saves the verbose output here (2> file). {db}, {date}, {time} and {host} are replaced. Empty = no log file, just -v."},
-  {k:"logtee",l:"Also show on screen (tee)",t:"check",tip:"Watch progress and keep the file: 2>&1 | tee file. Not available when SQL is printed to stdout (no -d)."}]],
- ["Filter objects",[
-  {k:"n",l:"Schemas",f:"-n",t:"multi",ph:"sales",tip:"Restore only these schemas."},
-  {k:"tt",l:"Tables",f:"-t",t:"multi",ph:"orders",tip:"Bare table name (no schema); combine with -n. Indexes/constraints are NOT restored with -t."}]],
- ["Behaviour",[
-  {k:"content",l:"What to restore",t:"select",def:"",opts:[["","schema + data"],["--schema-only","--schema-only"],["--data-only","--data-only"]],tip:"-s / -a."},
-  {k:"clean",l:"--clean",f:"--clean",t:"check",tip:"DROP objects before recreating them in the target."},
-  {k:"ifex",l:"--if-exists",f:"--if-exists",t:"check",tip:"Use IF EXISTS on drops so missing objects don't error. Requires --clean."},
-  {k:"create",l:"--create",f:"--create",t:"check",tip:"Create the database named in the dump; -d must point at an existing DB (e.g. postgres)."},
-  {k:"noowner",l:"--no-owner",f:"--no-owner",t:"check",tip:"Objects are owned by the connecting user."},
-  {k:"nopriv",l:"--no-privileges",f:"--no-privileges",t:"check",tip:"Skip GRANT/REVOKE."},
+  F("content",{l:"What to restore",opts:[["","schema + data"],["--schema-only","--schema-only"],["--data-only","--data-only"]],tip:"-s / -a."}),
+  F("v"),
+  F("clean",{tip:"DROP objects before recreating them in the target."}),
+  F("ifex",{tip:"Use IF EXISTS on drops so missing objects don't error. Requires --clean."}),
+  F("noowner",{tip:"Objects are owned by the connecting user."}),
   {k:"single",l:"--single-transaction",f:"--single-transaction",t:"check",tip:"All or nothing (-1). Implies --exit-on-error. Not with -j."},
-  {k:"exit",l:"--exit-on-error",f:"--exit-on-error",t:"check",tip:"Stop at the first error instead of continuing."}]]
+  F("logon"),
+  F("logf",{def:"{db}_{date}_restore.log",ph:"{db}_{date}_restore.log",tip:"Saves the verbose output here (2> file). {db}, {date}, {time} and {host} are replaced. Empty = no log file, just -v."}),
+  F("logtee",{tip:"Watch progress and keep the file: 2>&1 | tee file. Not available when SQL is printed to stdout (no -d)."})]],
+ ["List contents instead of restoring (-l / -L)",[
+  {k:"l",l:"-l list contents only",f:"-l",t:"check",tip:"Print the archive's table of contents; nothing is restored. While this is ticked the other options are greyed out because they are ignored."},
+  {k:"lout",l:"Save list to",t:"text",ph:"restore.list",tip:"With -l: redirect the list to this file, edit it, then use -L."},
+  {k:"L",l:"Use list file",f:"-L",t:"text",ph:"restore.list",tip:"Restore only entries in this (edited) list; comment lines out with ;"}],"list"],
+ ["Filter objects",[
+  F("n",{l:"Schemas",ph:"sales",tip:"Restore only these schemas."}),
+  F("tt",{l:"Tables",ph:"orders",tip:"Bare table name (no schema); combine with -n. Indexes/constraints are NOT restored with -t."})],"adv"],
+ ["More options",[
+  F("jobs",{tip:"Parallel restore (needs a file/dir, not stdin). Can't combine with --single-transaction."}),
+  F("create",{tip:"Create the database named in the dump; -d must point at an existing DB (e.g. postgres)."}),
+  F("nopriv",{tip:"Skip GRANT/REVOKE."}),
+  {k:"exit",l:"--exit-on-error",f:"--exit-on-error",t:"check",tip:"Stop at the first error instead of continuing."}],"adv"]
 ]},
 psql:{groups:[
  ["Run",[
@@ -748,26 +786,50 @@ let tab=LS.get("pgc.tab","pg_dump");if(!T[tab])tab="pg_dump";
 const defaults=fs=>Object.fromEntries(fs.map(f=>[f.k,f.def!==undefined?f.def:(f.t==="check"?false:"")]));
 const allFields=t=>T[t].groups.flatMap(g=>g[1]);
 let conn=Object.assign(defaults(CONN),LS.get("pgc.conn",{}));
-let st={};for(const t in T)st[t]=Object.assign(defaults(allFields(t)),(LS.get("pgc.state",{})[t])||{});
+let st={};for(const t in T){const saved=(LS.get("pgc.state",{})[t])||{};st[t]=Object.assign(defaults(allFields(t)),saved);
+ // before v2.9 "log to file" was implied by Verbose; keep such saved state producing the same command
+ if("logon" in st[t])st[t].logon=saved.logon===undefined?!!st[t].v:!!(saved.logon&&st[t].v);}
+const advUser={};
 const save=()=>{LS.set("pgc.conn",conn);LS.set("pgc.state",st);LS.set("pgc.tab",tab)};
 
 /* ---------- rendering of controls ---------- */
 const PRESETS=[["{db}_{date}"],["{db}_{date}_{time}"],["{host}_{db}_{date}"],["{db}_{schema}_{date}","n"],["{db}_{table}_{date}","tt"],["{db}_schema_only_{date}"],["{db}_data_only_{date}"]];
+const TIPS=new Set();
+const qbtn=(f,tid,txt)=>`<button type="button" class="q" data-tip="${tid}" aria-expanded="${TIPS.has(tid)}" aria-controls="${tid}" aria-label="Help: ${esc(f.l)}" title="${esc(txt)}">?</button>`;
+const tipDiv=(tid,txt)=>`<div class="tip hint" id="${tid}"${TIPS.has(tid)?"":" hidden"}>${esc(txt)}</div>`;
 function ctl(f,val,prefix){
  const id=prefix+"-"+f.k,tid=id+"-tip";
  const lab=f.f&&!f.l.includes(f.f)?`${esc(f.l)} <code>${esc(f.f)}</code>`:esc(f.l);
- if(f.t==="check")return`<div class="check" id="w-${id}"><input type="checkbox" id="${id}" data-k="${f.k}" aria-describedby="${tid}" ${val?"checked":""}><div><label for="${id}" class="mono" style="font-size:13px">${esc(f.l)}</label><div class="tip" id="${tid}">${esc(f.tip)}</div></div></div>`;
+ const mtip=f.t==="multi"?" Separate entries with commas or new lines.":"";
+ if(f.t==="check")return`<div class="check" id="w-${id}"><input type="checkbox" id="${id}" data-k="${f.k}" aria-describedby="${tid}" ${val?"checked":""}><div><label for="${id}" class="mono" style="font-size:13px">${esc(f.l)}</label>${qbtn(f,tid,f.tip)}${tipDiv(tid,f.tip)}</div></div>`;
  let input;
  if(f.t==="select")input=`<select id="${id}" data-k="${f.k}" aria-describedby="${tid}">${f.opts.map(o=>`<option value="${esc(o[0])}" ${o[0]===val?"selected":""}>${esc(o[1])}</option>`).join("")}</select>`;
  else if(f.t==="textarea"||f.t==="multi")input=`<textarea id="${id}" data-k="${f.k}" rows="${f.t==="multi"?1:2}" placeholder="${esc(f.ph||"")}" aria-describedby="${tid}" spellcheck="false">${esc(val)}</textarea>`;
  else input=`<input type="${f.t==="number"?"number":"text"}" ${f.t==="number"?'min="1" max="64"':""} id="${id}" data-k="${f.k}" value="${esc(val)}" placeholder="${esc(f.ph||"")}" aria-describedby="${tid}" autocomplete="off" spellcheck="false">`;
- const helper=f.presets?`<div class="presets" id="${id}-presets" role="group" aria-label="Output file name presets">${PRESETS.map(([tok,need])=>`<button class="small" type="button" data-preset="${esc(tok)}" ${need?`data-need="${need}"`:""} aria-label="Use file name ${esc(tok)}">${esc(tok)}</button>`).join("")}</div><div class="tip" id="${id}-phint" aria-live="polite"></div>`:"";
- const mtip=f.t==="multi"?" Separate entries with commas or new lines.":"";
- return`<div class="field" id="w-${id}"><label for="${id}">${lab}</label>${input}${helper}<div class="tip" id="${tid}">${esc(f.tip+mtip)}</div></div>`;
+ // the first three presets are chips; the rest sit in a small dropdown (every preset stays available)
+ const chip=([tok,need])=>`<button class="small" type="button" data-preset="${esc(tok)}" ${need?`data-need="${need}"`:""} aria-label="Use file name ${esc(tok)}">${esc(tok)}</button>`;
+ const opt=([tok,need])=>`<option value="${esc(tok)}" data-preset="${esc(tok)}" ${need?`data-need="${need}"`:""}>${esc(tok)}</option>`;
+ const helper=f.presets?`<div class="presets" id="${id}-presets" role="group" aria-label="Output file name presets">${PRESETS.slice(0,3).map(chip).join("")}<select class="small presetsel" aria-label="More output file name presets"><option value="">More presets…</option>${PRESETS.slice(3).map(opt).join("")}</select></div><div class="tip" id="${id}-phint" aria-live="polite"></div>`:"";
+ return`<div class="field" id="w-${id}"><div class="lab"><label for="${id}">${lab}</label>${qbtn(f,tid,f.tip+mtip)}</div>${input}${helper}${tipDiv(tid,f.tip+mtip)}</div>`;
 }
 function renderConn(){$("#connFields").innerHTML=CONN.map(f=>ctl(f,conn[f.k],"conn")).join("");}
+const isAdv=(t,f)=>T[t].groups.some(g=>g[2]==="adv"&&g[1].includes(f));
+const advSet=t=>allFields(t).filter(f=>isAdv(t,f)&&String(st[t][f.k])!==String(f.def!==undefined?f.def:(f.t==="check"?false:"")));
+function groupHTML(t,[g,fs,kind]){
+ const c=f=>ctl(f,st[t][f.k],t);
+ const plain=fs.filter(f=>f.t!=="check"&&!f.row),checks=fs.filter(f=>f.t==="check"&&!f.row),row=fs.filter(f=>f.row);
+ return`<fieldset${kind==="list"?' class="mini" id="list-'+t+'"':""}><legend>${esc(g)}</legend>`+
+  (kind==="list"?"":(plain.length?`<div class="grid">${plain.map(c).join("")}</div>`:""))+
+  (checks.length?`<div class="checks">${checks.map(c).join("")}</div>`:"")+
+  (kind==="list"&&plain.length?`<div class="grid" style="margin-top:12px">${plain.map(c).join("")}</div>`:"")+
+  (row.length?`<div class="logrow">${row.map(c).join("")}</div>`:"")+`</fieldset>`;
+}
 function renderPanel(){
- $("#panel").innerHTML=T[tab].groups.map(([g,fs])=>`<fieldset><legend>${esc(g)}</legend><div class="grid">${fs.map(f=>ctl(f,st[tab][f.k],tab)).join("")}</div></fieldset>`).join("");
+ const t=tab,gs=T[t].groups,adv=gs.filter(g=>g[2]==="adv");
+ let html=gs.filter(g=>g[2]!=="adv").map(g=>groupHTML(t,g)).join("");
+ if(adv.length){const n=advSet(t).length;
+  html+=`<details class="adv" id="adv-${t}" data-tool="${t}"${advUser[t]||n?" open":""}><summary>Advanced options <span class="tip" id="advcount-${t}">${n?"("+n+" set)":""}</span></summary>${adv.map(g=>groupHTML(t,g)).join("")}</details>`;}
+ $("#panel").innerHTML=html;
  document.querySelectorAll(".tabs button").forEach(b=>{const on=b.id==="tab-"+tab;b.setAttribute("aria-selected",on);b.tabIndex=on?0:-1});
  $("#panel").setAttribute("aria-labelledby","tab-"+tab);$("#toolName").textContent=tab;
  update();
@@ -786,6 +848,14 @@ function logTail(t,v,W){const raw=(v.logf||"").trim();if(!raw)return"";
  if(v.logtee){if(stdoutBusy(t,v)){W(t==="pg_dump"?"The dump itself goes to stdout (no -f), so tee would mix the log into the dump. The log is saved with 2> only.":"No -d target, so the SQL goes to stdout and tee would mix the log into it. The log is saved with 2> only.");return" 2> "+f;}
   W("With tee the shell reports tee's exit status, not "+t+"'s. In scripts, add set -o pipefail.","info");return" 2>&1 | tee "+f;}
  return" 2> "+f;}
+// --clean / --if-exists: same flags for both tools, only the wording of the warnings differs
+const CLEANMSG={
+ pg_dump:{dataOnly:"pg_dump rejects --clean with --data-only.",plainOnly:"--clean only affects plain (-Fp) output. For archives pass --clean to pg_restore instead.",ifexNeedsClean:"--if-exists requires --clean — pg_dump will refuse to run.",cleanNoIfex:"--clean without --if-exists: DROP errors for objects that don't exist yet in the target. Add --if-exists."},
+ pg_restore:{dataOnly:"--clean with --data-only is rejected by pg_restore.",ifexNeedsClean:"--if-exists requires --clean.",cleanNoIfex:"--clean without --if-exists: expect DROP errors for objects missing in the target. Add --if-exists."}};
+function cleanArgs(t,v,a,W){const m=CLEANMSG[t];
+ if(v.clean){if(v.content==="--data-only")W(m.dataOnly,"err");a.push("--clean");if(m.plainOnly&&v.fmt!=="p")W(m.plainOnly);}
+ if(v.ifex){a.push("--if-exists");if(!v.clean)W(m.ifexNeedsClean,"err");}
+ else if(v.clean)W(m.cleanNoIfex);}
 function build(t,v){
  const a=[],w=[];let tail="";const W=(m,l)=>w.push([l||"warn",m]);
  if(t==="pg_dump"){
@@ -801,11 +871,9 @@ function build(t,v){
   if(v.content)a.push(v.content);if(v.section)a.push("--section="+v.section);
   if(v.content&&v.section)W("--section together with --schema-only/--data-only is redundant; prefer one of them.");
   if(v.noowner)a.push("--no-owner");if(v.nopriv)a.push("--no-privileges");
-  if(v.clean){if(v.content==="--data-only")W("pg_dump rejects --clean with --data-only.","err");a.push("--clean");if(v.fmt!=="p")W("--clean only affects plain (-Fp) output. For archives pass --clean to pg_restore instead.");}
-  if(v.ifex){a.push("--if-exists");if(!v.clean)W("--if-exists requires --clean — pg_dump will refuse to run.","err");}
-  else if(v.clean)W("--clean without --if-exists: DROP errors for objects that don't exist yet in the target. Add --if-exists.");
+  cleanArgs(t,v,a,W);
   if(v.create){a.push("--create");if(v.fmt!=="p")W("--create in pg_dump only matters for plain output; for archives use pg_restore --create.","info");}
-  if(v.v){a.push("-v");tail=logTail("pg_dump",v,W);}
+  if(v.v){a.push("-v");if(v.logon)tail=logTail("pg_dump",v,W);}
   if(v.fmt==="p")W("Plain SQL dumps are restored with psql -f, not pg_restore.","info");
   if(v.fmt==="c"&&!v.jobs)W("Tip: -Fc is the recommended default — compressed, and pg_restore can restore selectively and in parallel.","info");
  }
@@ -819,14 +887,12 @@ function build(t,v){
   list(v.tt).forEach(x=>{if(x.includes("."))W(`pg_restore -t takes a bare table name: use -n ${x.split(".")[0]} -t ${x.split(".").slice(1).join(".")}.`,"err");a.push("-t",x)});
   if(list(v.tt).length)W("-t restores only the table definition/data — not its indexes, constraints or triggers.","info");
   if(v.content)a.push(v.content);
-  if(v.clean){a.push("--clean");if(v.content==="--data-only")W("--clean with --data-only is rejected by pg_restore.","err");}
-  if(v.ifex){a.push("--if-exists");if(!v.clean)W("--if-exists requires --clean.","err");}
-  else if(v.clean)W("--clean without --if-exists: expect DROP errors for objects missing in the target. Add --if-exists.");
+  cleanArgs(t,v,a,W);
   if(v.create){a.push("--create");if(conn.db&&conn.db!=="postgres"&&conn.db!=="template1")W(`With --create, -d is only the DB to connect to first (usually postgres); the new DB gets the name stored in the dump.`,"info");}
   if(v.noowner)a.push("--no-owner");if(v.nopriv)a.push("--no-privileges");
   if(v.single)a.push("--single-transaction");if(v.exit)a.push("--exit-on-error");
   if(v.single&&v.exit)W("--single-transaction already implies --exit-on-error.","info");
-  if(v.v){a.push("-v");tail=logTail("pg_restore",v,W);}
+  if(v.v){a.push("-v");if(v.logon)tail=logTail("pg_restore",v,W);}
   if(v.in){a.push(v.in);if(/\.(sql|sql\.gz|txt)$/i.test(v.in))W("This looks like a plain SQL dump (-Fp). pg_restore can't read it — use psql -f (or gunzip -c … | psql).","err");}
   else W("Add the dump file or directory to restore.","err");
  }
@@ -856,10 +922,12 @@ function render(t,v){const r=build(t,v);const ml=$("#multiline").checked;
  return{cmd:parts.join(ml?" \\\n    ":" ")+r.tail,w:r.w};}
 function update(){
  const v=st[tab];
- if(tab==="pg_dump"||tab==="pg_restore"){["logf","logtee"].forEach(k=>{const w=document.getElementById("w-"+tab+"-"+k);if(w)w.hidden=!v.v;});setDisabled("logtee",stdoutBusy(tab,v));}
- if(tab==="pg_dump"){const hint=[];document.querySelectorAll("#panel [data-preset]").forEach(b=>{const need=b.dataset.need;const off=!!need&&!firstOf(v[need]);b.disabled=off;b.title=off?(need==="n"?"Add a schema under Include schemas (-n) first":"Add a table under Include tables (-t) first"):"";if(off)hint.push(need==="n"?"{schema} needs a schema in Include schemas (-n)":"{table} needs a table in Include tables (-t)");});const h=document.getElementById("pg_dump-file-phint");if(h)h.textContent=hint.length?"Greyed out: "+hint.join("; ")+".":"Click a preset to fill the name; the ending follows the format.";}
+ if(tab==="pg_dump"||tab==="pg_restore"){["logf","logtee"].forEach(k=>{const w=document.getElementById("w-"+tab+"-"+k);if(w)w.hidden=!v.logon;});setDisabled("logtee",stdoutBusy(tab,v)||(tab==="pg_restore"&&!!v.l));}
+ if(tab==="pg_dump"){const hint=[];document.querySelectorAll("#panel [data-preset]").forEach(b=>{const need=b.dataset.need;const off=!!need&&!firstOf(v[need]);b.disabled=off;b.title=off?(need==="n"?"Add a schema under Include schemas (-n) in Advanced options first":"Add a table under Include tables (-t) in Advanced options first"):"";if(off)hint.push(need==="n"?"{schema} needs -n":"{table} needs -t");});const h=document.getElementById("pg_dump-file-phint");if(h)h.textContent=hint.length?"Greyed out: "+hint.join(", ")+" set under Advanced options → Filter objects.":"Click a preset to fill the name; the ending follows the format.";}
  if(tab==="pg_dump"){setDisabled("jobs",v.fmt!=="d");setDisabled("clean",v.fmt!=="p");setDisabled("ifex",v.fmt!=="p"&&!v.ifex);setDisabled("create",v.fmt!=="p"&&!v.create);setDisabled("Z",v.fmt==="t");}
- if(tab==="pg_restore"){setDisabled("lout",!v.l);}
+ if(tab==="pg_restore"){const lm=!!v.l;allFields(tab).forEach(f=>{if(!["in","l","lout","logtee"].includes(f.k))setDisabled(f.k,lm);});setDisabled("lout",!lm);
+  const ls=document.getElementById("list-pg_restore");if(ls)ls.classList.toggle("active",lm);}
+ const ac=document.getElementById("advcount-"+tab);if(ac){const n=advSet(tab).length;ac.textContent=n?"("+n+" set)":"";}
  if(tab==="psql"){setDisabled("F",!v.A&&!v.F);}
  const r=render(tab,v);$("#cmd").textContent=r.cmd;
  $("#warns").innerHTML=r.w.map(([l,m])=>`<div class="warn ${l==="err"?"err":l==="info"?"info":""}">${l==="err"?"✖":l==="info"?"ℹ":"⚠"} ${esc(m)}</div>`).join("");
@@ -869,13 +937,23 @@ function update(){
 
 /* ---------- events ---------- */
 function onInput(e){const el=e.target;const k=el.dataset.k;if(!k)return;const val=el.type==="checkbox"?el.checked:el.value;
- if(el.id.startsWith("conn-")){conn[k]=val;$("#profSel").value="";}else st[tab][k]=val;update();}
+ if(el.id.startsWith("conn-")){conn[k]=val;$("#profSel").value="";}else{st[tab][k]=val;
+  // "Log to file" needs Verbose: ticking it ticks Verbose, unticking Verbose turns it off
+  const sync=(kk,x)=>{st[tab][kk]=x;const c=document.getElementById(tab+"-"+kk);if(c)c.checked=x;};
+  if("logon" in st[tab]){if(k==="logon"&&val)sync("v",true);if(k==="v"&&!val)sync("logon",false);}}
+ update();}
 document.addEventListener("input",onInput);document.addEventListener("change",onInput);
-$("#panel").addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-preset]");if(!b||b.disabled)return;const ext={c:".dump",d:"_dir",p:".sql",t:".tar"}[st.pg_dump.fmt];st.pg_dump.file=b.dataset.preset+ext;renderPanel();});
+function applyPreset(tok){const ext={c:".dump",d:"_dir",p:".sql",t:".tar"}[st.pg_dump.fmt];st.pg_dump.file=tok+ext;renderPanel();}
+$("#panel").addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("button");if(!t)return;
+ if(t.dataset.preset!==undefined){if(!t.disabled)applyPreset(t.dataset.preset);return;}
+ if(t.dataset.tip){const tip=document.getElementById(t.dataset.tip),open=tip.hidden;tip.hidden=!open;t.setAttribute("aria-expanded",open);if(open)TIPS.add(t.dataset.tip);else TIPS.delete(t.dataset.tip);}});
+$("#panel").addEventListener("change",e=>{const s=e.target;if(!s.classList||!s.classList.contains("presetsel"))return;const o=s.selectedOptions[0];if(o&&o.value&&!o.disabled)applyPreset(o.value);else s.value="";});
+// remember when the user opens/closes Advanced by hand (auto-open from set options is not remembered)
+$("#panel").addEventListener("click",e=>{const s=e.target.closest&&e.target.closest("summary");if(!s)return;const d=s.parentElement;advUser[d.dataset.tool]=!d.open;});
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{tab=b.id.slice(4);renderPanel();}));
 $(".tabs").addEventListener("keydown",e=>{const ks=Object.keys(T);let i=ks.indexOf(tab);if(e.key==="ArrowRight")i=(i+1)%3;else if(e.key==="ArrowLeft")i=(i+2)%3;else return;tab=ks[i];renderPanel();document.getElementById("tab-"+tab).focus();});
 $("#multiline").addEventListener("change",update);
-$("#resetBtn").addEventListener("click",()=>{st[tab]=defaults(allFields(tab));renderPanel();toast("Reset "+tab+" options");});
+$("#resetBtn").addEventListener("click",()=>{st[tab]=defaults(allFields(tab));advUser[tab]=false;renderPanel();toast("Reset "+tab+" options");});
 function copy(text){const ok=()=>toast("Copied ✓");if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(text).then(ok,()=>fallback(text));else fallback(text);
  function fallback(t){const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");ok()}catch(e){}ta.remove();}}
 $("#copyBtn").addEventListener("click",()=>copy($("#cmd").textContent));
