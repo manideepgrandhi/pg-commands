@@ -2,10 +2,10 @@
 <html lang="en" data-mg-site="pg-commands" data-mg-here="/pg-commands/">
 <head>
 <meta charset="utf-8">
-<meta name="pgc-version" content="2.9">
+<meta name="pgc-version" content="2.10">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>pg-commands · pg_dump, pg_restore & psql builder</title>
-<meta name="description" content="Interactive command builder and recipes for pg_dump, pg_restore and psql. Runs fully in your browser.">
+<title>pg-commands · pg_dump, pg_restore, pg_dump_wrapper & psql builder</title>
+<meta name="description" content="Interactive command builder and recipes for pg_dump, pg_restore, pg_dump_wrapper and psql. Runs fully in your browser.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230d1117'/%3E%3Ctext x='5' y='22' font-family='monospace' font-size='16' fill='%233fb950'%3E$_%3C/text%3E%3C/svg%3E">
 <style>
 :root{--bg:#0d1117;--panel:#161b22;--panel2:#1c2330;--line:#30363d;--fg:#e6edf3;--muted:#9da7b3;--green:#3fb950;--blue:#58a6ff;--amber:#d29922;--red:#f85149;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;--term:#010409;--termbar:#0b0f14;--input:#0d1117;--warnbg:#2a2312;--errbg:#2d1416;--infobg:#0f2236;--watch:#f0c674;--rds:#ffa657;--conf:#d2a8ff;--onaccent:#0d1117;color-scheme:dark}
@@ -139,6 +139,11 @@ main section>h2:first-child{margin-top:14px}
 .out{top:var(--hh,60px)}
 .sitefoot{margin-top:10px}
 .sitefoot a{margin-right:2px}
+
+#wrapperDocs{margin-top:16px}
+#wrapperDocs>h3:first-child{margin-top:0}
+#wrapperDocs h3{margin:18px 0 8px}
+#wrapperDocs pre.cmd{padding:12px 14px;border:1px solid var(--line)}
 [data-hide]{display:none!important}
 @media (max-width:860px){header{position:static}.sitelink{display:none}.layout{display:block}#side{position:sticky;top:0;z-index:15;background:var(--bg);max-height:none;padding:8px 0;display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line)}#side h4{display:none}#side a{flex:0 0 auto;border-left:0;border:1px solid var(--line);font-size:13px;padding:5px 10px}#side a:not([data-g-on]){display:none}.gtabs{margin-left:0;width:100%;overflow-x:auto;flex-wrap:nowrap}.jump{flex:1 1 100%}.tagline{display:none}.out{position:static}}
 </style>
@@ -534,6 +539,7 @@ window.MGSearch={open:open,close:close,load:load,catalog:CATALOG,siteScore:siteS
 <h2 id="h-build">builder</h2>
 <div class="tabs" role="tablist" aria-label="Tool">
   <button role="tab" id="tab-pg_dump" aria-controls="panel" aria-selected="true">pg_dump</button>
+  <button role="tab" id="tab-pg_dump_wrapper" aria-controls="panel" aria-selected="false" tabindex="-1">pg_dump_wrapper</button>
   <button role="tab" id="tab-pg_restore" aria-controls="panel" aria-selected="false" tabindex="-1">pg_restore</button>
   <button role="tab" id="tab-psql" aria-controls="panel" aria-selected="false" tabindex="-1">psql</button>
 </div>
@@ -551,6 +557,28 @@ window.MGSearch={open:open,close:close,load:load,catalog:CATALOG,siteScore:siteS
   <div class="warns" id="warns" aria-live="polite"></div>
 </div>
 <div id="panel" role="tabpanel" class="panel"></div>
+<div id="wrapperDocs" class="panel" hidden>
+  <h3>pg_dump_wrapper</h3>
+  <p class="tip" style="margin-top:0">A wrapper around <code>pg_dump</code> for scheduled, logged backups: many databases or servers in one run, retention, verify, checksums and alerts. This builder only emits flags the script accepts. It never stores a password. Roles and tablespaces are not in a <code>pg_dump</code> backup — also run <code>pg_dumpall --globals-only</code> if you need those.</p>
+  <h3>Install from the v2.3.0 zip</h3>
+  <p class="tip">Release: <a href="https://github.com/manideepgrandhi/pg-dump-wrapper/releases/tag/v2.3.0" rel="noopener">v2.3.0</a>. The zip unpacks a <code>pg-dump-wrapper/</code> folder with the script, README, EXAMPLES, CHANGELOG, WHY_THIS_WRAPPER and <code>pg_dump_wrapper.conf.example</code>.</p>
+  <pre class="cmd" style="background:var(--term);border-radius:6px;margin:8px 0">curl -L -o pg-dump-wrapper-v2.3.0.zip \
+  https://github.com/manideepgrandhi/pg-dump-wrapper/releases/download/v2.3.0/pg-dump-wrapper-v2.3.0.zip
+curl -L -o pg-dump-wrapper-v2.3.0.zip.sha256 \
+  https://github.com/manideepgrandhi/pg-dump-wrapper/releases/download/v2.3.0/pg-dump-wrapper-v2.3.0.zip.sha256
+sha256sum -c pg-dump-wrapper-v2.3.0.zip.sha256
+unzip pg-dump-wrapper-v2.3.0.zip
+cd pg-dump-wrapper
+./pg_dump_wrapper.sh --version</pre>
+  <p class="tip">Needs Bash ≥ 4.4 and <code>pg_dump</code>/<code>pg_restore</code>. <code>psql</code> and <code>pg_isready</code> are used for pre-checks and <code>--all</code>. Help is <code>--help</code>, not <code>-h</code> (<code>-h</code> means host).</p>
+  <h3>Options</h3>
+  <div class="field" style="max-width:360px;margin:8px 0"><label for="wd-q">Search options</label>
+    <input type="text" id="wd-q" placeholder="servers, retention, alert, per-table…" autocomplete="off" spellcheck="false"></div>
+  <p class="tip" id="wd-count"></p>
+  <div class="tablewrap"><table class="model" id="wd-opts"><thead><tr><th>Option</th><th>Purpose</th></tr></thead><tbody></tbody></table></div>
+  <h3>Examples</h3>
+  <div class="cards" id="wd-ex"></div>
+</div>
 </section>
 
 <section id="recipes" aria-labelledby="h-rec">
@@ -659,8 +687,8 @@ window.MGSearch={open:open,close:close,load:load,catalog:CATALOG,siteScore:siteS
 </section>
 </main></div>
 <footer><div class="wrap">
-  <strong>Also see:</strong> <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">pg-dump-wrapper</a> — Manideep's <code>pg_dump</code>/<code>psql</code> wrapper scripts for scheduled, logged backups and runs.<br>
-  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.9. Always review a command before running it, especially against production.
+  <strong>Also see:</strong> <a href="#backup/pg_dump_wrapper">pg_dump_wrapper builder</a> on this page, and the <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">pg-dump-wrapper</a> repo — Manideep's <code>pg_dump</code>/<code>psql</code> wrapper scripts for scheduled, logged backups and runs.<br>
+  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.10. Always review a command before running it, especially against production.
 </div></footer>
 <div class="toast" id="toast" role="status"></div>
 
@@ -735,6 +763,56 @@ pg_dump:{groups:[
   F("clean",{tip:"Plain format only: emit DROP before CREATE."}),
   F("ifex",{tip:"Use DROP … IF EXISTS. Requires --clean."}),
   F("create",{tip:"Plain format: include CREATE DATABASE and \\connect."})],"adv"]
+]},
+pg_dump_wrapper:{bin:"./pg_dump_wrapper.sh",groups:[
+ ["Common",[
+  {k:"bin",l:"Script path",t:"text",def:"./pg_dump_wrapper.sh",ph:"./pg_dump_wrapper.sh",tip:"Where pg_dump_wrapper.sh lives on the machine that will run the command. This is not a script flag."},
+  {k:"servers",l:"Servers file",f:"--servers",t:"text",ph:"/etc/pg_backup/servers.txt",tip:"Many servers, one after another, one summary. Each line is host,port,user,databases (databases = all or a comma list). Host and port come from the file, so -h/-p are left out. Passwords come from .pgpass; -W and -f are not allowed."},
+  {k:"fmt",l:"Format",f:"-F",t:"select",def:"c",opts:[["c","-F c  custom (recommended, default)"],["d","-F d  directory (parallel)"],["p","-F p  plain SQL"],["t","-F t  tar"]],tip:"Default in the wrapper is custom. Directory allows -j. Plain = SQL for psql."},
+  {k:"outdir",l:"Output directory",f:"-o",t:"text",ph:"/backups",tip:"Where backups go (created if needed). Default is the current directory. With --servers, each server writes to OUTPUT_DIR/<host>_<port>/."},
+  {k:"all",l:"--all",f:"--all",t:"check",tip:"Dump every non-template database that allows connections. Cannot be combined with -d. With --servers, this is the fallback when a line's databases field is empty."},
+  F("content",{l:"What to dump",opts:[["","schema + data"],["--schema-only","--schema-only (DDL only)"],["--data-only","--data-only (rows only)"]],tip:"-s / -a. Mutually exclusive."}),
+  {k:"tsizes",l:"Table sizes",f:"--table-sizes",t:"text",def:"10",ph:"10, 0 or all",tip:"Before each dump, list the N largest tables (size incl. indexes and TOAST, estimated rows). 0 = off, all = every table. Default: 10. With -t, only the matching tables are listed. The default is left out of the command."},
+  {k:"ret",l:"Retention days",f:"-r",t:"text",ph:"14",tip:"After a successful dump, delete that database's DB_YYYYmmdd_HHMMSS.* backups older than N days. N must be >= 1. Other files are never touched."},
+  {k:"W",l:"-W prompt for password",f:"-W",t:"check",tip:"Ask once at the start (hidden typing, needs a terminal) and use that password for every database. Never stored or logged. Not allowed with --servers; use .pgpass instead. Don't use this in cron."},
+  {k:"pertable",l:"--per-table",f:"--per-table",t:"check",tip:"Dump each table selected by -t schema.table and/or -n SCHEMA into its own file. Needs at least one -t or -n (set those under Advanced options). Cannot be combined with -f."},
+  {k:"verify",l:"--verify",f:"--verify",t:"check",tip:"After the dump, run pg_restore --list (or check the plain-file footer)."},
+  {k:"checksum",l:"--checksum",f:"--checksum",t:"check",tip:"Write a .sha256 file next to the dump."},
+  {k:"dry",l:"--dry-run",f:"--dry-run",t:"check",tip:"Print the pg_dump command(s) and exit without dumping, deleting or alerting."},
+  F("v",{tip:"Debug logging, and pass --verbose to pg_dump."}),
+  F("noowner",{tip:"Don't emit ALTER OWNER. Good when restoring as a different user."})]],
+ ["Alerts",[
+  {k:"aemail",l:"Alert e-mail",f:"--alert-email",t:"multi",ph:"dba@example.com",tip:"Mail the run report (mail/mailx/sendmail). Repeatable or comma-separated."},
+  {k:"ahook",l:"Alert webhook",f:"--alert-webhook",t:"multi",ph:"https://hooks.example.com/services/T000/B000/XXXX",tip:"POST the run report as JSON via curl. Repeatable. Only http(s) URLs are accepted. The URL often contains a secret token."},
+  {k:"ahfmt",l:"Webhook format",f:"--alert-webhook-format",t:"select",def:"slack",opts:[["slack","slack (default, {\"text\": ...})"],["json","json (structured)"]],tip:"slack works with Slack, Teams and Google Chat incoming webhooks. json is a structured object. Only emitted when not slack."},
+  {k:"aon",l:"Alert when",f:"--alert-on",t:"select",def:"failure",opts:[["failure","failure (default)"],["always","always"]],tip:"failure = only when the run fails. always = also on success. Only emitted when not failure."},
+  {k:"afrom",l:"Alert from",f:"--alert-from",t:"text",ph:"pg-backups@example.com",tip:"From address for e-mail alerts (sendmail / mailx -r)."},
+  {k:"atest",l:"--alert-test",f:"--alert-test",t:"check",tip:"Send a test alert to the configured targets and exit. Needs --alert-email or --alert-webhook."}]],
+ ["Filter objects",[
+  F("n",{l:"Include schemas",ph:"sales, hr",tip:"One -n per entry; patterns like 'app_*' allowed. Also used with --per-table."}),
+  {k:"N",l:"Exclude schemas",f:"-N",t:"multi",ph:"tmp",tip:"Skip these schemas."},
+  F("tt",{l:"Include tables",ph:"sales.orders",tip:"One -t per entry. Schema-qualify to be precise. Needed (or -n) for --per-table."}),
+  {k:"TT",l:"Exclude tables",f:"-T",t:"multi",ph:"public.big_log",tip:"Skip these tables entirely."},
+  {k:"xtd",l:"Exclude table data",f:"--exclude-table-data",t:"multi",ph:"public.audit_log",tip:"Keep the table definition, skip its rows."},
+  {k:"exdb",l:"Exclude databases",f:"--exclude-db",t:"multi",ph:"postgres, test_*",tip:"With --all: skip databases matching a shell glob."},
+  {k:"mdb",l:"Maintenance database",f:"--maintenance-db",t:"text",ph:"postgres",tip:"Database used to list databases for --all. Default: postgres."}],"adv"],
+ ["More options",[
+  F("jobs",{tip:"Parallel dump jobs. Only with directory format when greater than 1. Opens jobs+1 connections."}),
+  {k:"Z",l:"Compression",f:"-Z",t:"text",ph:"6 or gzip:6",tip:"0-9, or METHOD[:LEVEL] e.g. gzip:6, zstd:3, lz4 (PG16+ pg_dump). Not allowed for tar."},
+  {k:"file",l:"Override file name",f:"-f",t:"text",ph:"salesdb.dump",tip:"Bare file name only (use -o for the directory). Single database only. Not allowed with --servers or --per-table."},
+  {k:"ptpat",l:"Per-table file pattern",f:"--per-table-file-pattern",t:"text",ph:"{db}_{schema}_{table}_{date}.{ext}",tip:"Tokens {db} {schema} {table} {date} are required; {ext} is optional. Default: {db}_{schema}_{table}_{date}.{ext}. Must be a file name, not a path."},
+  {k:"logf",l:"Log file",f:"-l",t:"text",ph:"/var/log/pg_dump_wrapper.log",tip:"Log file (default: OUTPUT_DIR/pg_dump_wrapper.log). Every line is timestamped and also printed to stderr."},
+  {k:"minfree",l:"Min free MB",f:"--min-free-mb",t:"text",def:"1024",ph:"1024",tip:"Warn if free space in OUTPUT_DIR is below N MB. Default: 1024 (left out of the command)."},
+  {k:"pgpassfile",l:"pgpass file",f:"--pgpassfile",t:"text",ph:"/etc/pg_backup/.pgpass",tip:"Use this .pgpass file (sets PGPASSFILE). Lines are host:port:*:user:password. chmod 600."},
+  {k:"config",l:"Config file",f:"--config",t:"text",ph:"/etc/pg_backup/pg_dump_wrapper.conf",tip:"Load key=value settings (CLI arguments override them). Passwords are not allowed in the file."},
+  {k:"pgbin",l:"pg_dump bin directory",f:"--pg-bin",t:"text",ph:"/usr/lib/postgresql/17/bin",tip:"Directory containing pg_dump, pg_restore, psql and pg_isready."},
+  {k:"stop",l:"--stop-on-error",f:"--stop-on-error",t:"check",tip:"Stop at the first failed database, table or server (default: continue)."},
+  {k:"skip",l:"--skip-precheck",f:"--skip-precheck",t:"check",tip:"Skip connectivity and disk-space checks."},
+  F("nopriv",{tip:"Do not output GRANT/REVOKE commands (-x)."}),
+  F("clean",{tip:"Emit DROP before CREATE (plain format). For archives, pass --clean to pg_restore instead."}),
+  F("ifex",{tip:"Use DROP … IF EXISTS. Requires --clean."}),
+  F("create",{tip:"Emit CREATE DATABASE + \\connect (plain format)."}),
+  {k:"extra",l:"Extra pg_dump args (after --)",t:"text",ph:"--lock-wait-timeout=30s --no-comments",tip:"Everything after -- is passed to pg_dump verbatim."}],"adv"]
 ]},
 pg_restore:{groups:[
  ["Common",[
@@ -832,6 +910,7 @@ function renderPanel(){
  $("#panel").innerHTML=html;
  document.querySelectorAll(".tabs button").forEach(b=>{const on=b.id==="tab-"+tab;b.setAttribute("aria-selected",on);b.tabIndex=on?0:-1});
  $("#panel").setAttribute("aria-labelledby","tab-"+tab);$("#toolName").textContent=tab;
+ const wd=$("#wrapperDocs");if(wd)wd.hidden=tab!=="pg_dump_wrapper";if(tab==="pg_dump_wrapper")wrapDocsInit();
  update();
 }
 function setDisabled(k,dis){const el=document.getElementById(tab+"-"+k);if(!el)return;el.disabled=dis;const w=document.getElementById("w-"+tab+"-"+k);if(w)w.classList.toggle("disabled",dis);}
@@ -877,6 +956,61 @@ function build(t,v){
   if(v.fmt==="p")W("Plain SQL dumps are restored with psql -f, not pg_restore.","info");
   if(v.fmt==="c"&&!v.jobs)W("Tip: -Fc is the recommended default — compressed, and pg_restore can restore selectively and in parallel.","info");
  }
+ if(t==="pg_dump_wrapper"){
+  const servers=(v.servers||"").trim(), fileName=(v.file||"").trim(), all=!!v.all;
+  const fmt=v.fmt||"c", isPlain=(fmt==="p"||fmt==="plain"), isDir=(fmt==="d"||fmt==="directory"), isTar=(fmt==="t"||fmt==="tar");
+  if((v.config||"").trim())a.push("--config",v.config.trim());
+  if(servers){a.push("--servers",servers);
+   if(conn.host||(conn.port&&conn.port!=="5432"))W("Host and port come from the servers file, so -h/-p are left out.","info");
+   if(v.W)W("-W cannot be used with --servers (each server has its own password). Use ~/.pgpass or --pgpassfile: host:port:*:user:password","err");
+   if(fileName)W("-f/--file cannot be used with --servers.","err");}
+  else{if(conn.host)a.push("-h",conn.host);if(conn.port){if(!/^[0-9]+$/.test(conn.port)||+conn.port<1||+conn.port>65535)W("Invalid port: "+conn.port,"err");a.push("-p",conn.port);}
+   if(v.W)a.push("-W");}
+  if(conn.user)a.push("-U",conn.user);
+  if((v.pgpassfile||"").trim())a.push("--pgpassfile",v.pgpassfile.trim());
+  const dbs=(conn.db||"").trim();
+  if(all){a.push("--all");if(dbs)W("Use either -d/--dbname or --all, not both. -d is left out.","err");
+   list(v.exdb).forEach(x=>a.push("--exclude-db",x));if((v.mdb||"").trim())a.push("--maintenance-db",v.mdb.trim());}
+  else{if(dbs){if(dbs.includes("/"))W("Database name must not contain '/': "+dbs,"err");a.push("-d",dbs);}
+   else if(!servers)W("Database name is required (-d/--dbname or --all), or use --servers.","err");
+   else W("If a servers-file line has an empty databases field, add -d or --all, or put all / db1,db2 on the line.","info");
+   if(list(v.exdb).length)W("--exclude-db only applies with --all; it's left out.","info");}
+  if(fmt&&fmt!=="c")a.push("-F",fmt);
+  if((v.outdir||"").trim())a.push("-o",v.outdir.trim());
+  if(fileName&&!servers){if(/[\/\\]/.test(fileName))W("--file must be a bare file name; use --output-dir for the directory.","err");
+   else if(all||list(dbs).length>1)W("-f/--file can only be used with a single database.","err");
+   else if(v.pertable)W("-f/--file cannot be used with --per-table (see --per-table-file-pattern).","err");
+   else a.push("-f",fileName);}
+  if((v.logf||"").trim())a.push("-l",v.logf.trim());
+  if((v.ret||"").trim()){if(!/^[0-9]+$/.test(v.ret)||+v.ret<1)W("--retention-days must be an integer >= 1.","err");else a.push("-r",v.ret);}
+  if((v.minfree||"").trim()){if(!/^[0-9]+$/.test(String(v.minfree).trim()))W("--min-free-mb must be an integer.","err");else if(String(v.minfree).trim()!=="1024")a.push("--min-free-mb",String(v.minfree).trim());}
+  if((v.tsizes||"").trim()){const ts=String(v.tsizes).trim();if(!/^(all|[0-9]+)$/i.test(ts))W("--table-sizes must be a number (0 = off) or 'all'.","err");else if(ts!=="10")a.push("--table-sizes",ts);}
+  if(v.jobs){if(+v.jobs>1&&!isDir)W("--jobs > 1 is only supported with --format directory; it's left out.","err");else a.push("-j",v.jobs);}
+  if(v.Z){if(isTar&&v.Z!=="0"&&!/^none/i.test(v.Z))W("tar format does not support compression; -Z is left out.","err");else a.push("-Z",v.Z);}
+  list(v.n).forEach(x=>a.push("-n",x));list(v.N).forEach(x=>a.push("-N",x));
+  list(v.tt).forEach(x=>a.push("-t",x));list(v.TT).forEach(x=>a.push("-T",x));
+  list(v.xtd).forEach(x=>a.push("--exclude-table-data="+x));
+  if(v.content&&v.xtd&&v.content==="--schema-only")W("--exclude-table-data has no effect with --schema-only.");
+  if(v.pertable){a.push("--per-table");if(!list(v.tt).length&&!list(v.n).length)W("--per-table needs tables: -t schema.table and/or -n SCHEMA.","err");
+   if((v.ptpat||"").trim()){const p=v.ptpat.trim();["db","schema","table","date"].forEach(tok=>{if(!p.includes("{"+tok+"}"))W("--per-table-file-pattern must contain {"+tok+"}.","err");});
+    if(/[\/\\]/.test(p))W("--per-table-file-pattern must be a file name, not a path (use --output-dir).","err");
+    a.push("--per-table-file-pattern",p);}}
+  if(v.content)a.push(v.content);
+  if(v.noowner)a.push("--no-owner");if(v.nopriv)a.push("--no-privileges");
+  if(v.clean){if(v.content==="--data-only")W("--clean cannot be used with --data-only.","err");a.push("--clean");if(!isPlain)W("--clean/--create in archive formats are only restore hints; pass them to pg_restore instead.");}
+  if(v.ifex){a.push("--if-exists");if(!v.clean)W("--if-exists requires --clean — the wrapper will refuse to run.","err");}
+  if(v.create){a.push("--create");if(!isPlain&&!v.clean)W("--clean/--create in archive formats are only restore hints; pass them to pg_restore instead.");}
+  if(v.stop)a.push("--stop-on-error");if(v.verify)a.push("--verify");if(v.checksum)a.push("--checksum");if(v.dry)a.push("--dry-run");if(v.skip)a.push("--skip-precheck");
+  if((v.pgbin||"").trim())a.push("--pg-bin",v.pgbin.trim());if(v.v)a.push("-v");
+  list(v.aemail).forEach(x=>{if(!/^[^\s@|;\&$`]+@[^\s@|;\&$`]+$/.test(x))W("Invalid --alert-email address: "+x,"err");a.push("--alert-email",x);});
+  list(v.ahook).forEach(x=>{if(!/^https?:\/\//.test(x))W("--alert-webhook must be an http(s) URL.","err");a.push("--alert-webhook",x);});
+  if(list(v.ahook).length&&v.ahfmt&&v.ahfmt!=="slack")a.push("--alert-webhook-format",v.ahfmt);
+  if(list(v.aemail).length||list(v.ahook).length){if(v.aon&&v.aon!=="failure")a.push("--alert-on",v.aon);if((v.afrom||"").trim())a.push("--alert-from",v.afrom.trim());}
+  else{if(v.aon&&v.aon!=="failure")W("--alert-on has no effect until you set --alert-email or --alert-webhook.","info");if((v.afrom||"").trim())W("--alert-from has no effect until you set --alert-email.","info");}
+  if(v.atest){a.push("--alert-test");if(!list(v.aemail).length&&!list(v.ahook).length)W("--alert-test needs --alert-email or --alert-webhook.","err");}
+  if(v.dry&&(list(v.aemail).length||list(v.ahook).length))W("--dry-run never sends alerts.","info");
+  if((v.extra||"").trim())tail=" -- "+v.extra.trim();
+ }
  if(t==="pg_restore"){
   if(v.l){a.push("-l");if(v.in)a.push(v.in);else W("Give the dump file to list.","err");if(v.lout)tail=" > "+shq(v.lout);W("-l only lists the archive's contents; other options are ignored.","info");return{a,w,tail};}
   a.push(...connArgs(true));
@@ -918,7 +1052,8 @@ function build(t,v){
 function render(t,v){const r=build(t,v);const ml=$("#multiline").checked;
  const VAL=new Set(["-h","-p","-U","-d","-f","-j","-Z","-n","-N","-L","-c","-F","-o"]);
  if(t==="psql")VAL.add("-v");else VAL.add("-t").add("-T");
- const parts=[t];for(let i=0;i<r.a.length;i++){const x=r.a[i];if(VAL.has(x)&&i+1<r.a.length)parts.push(x+" "+shq(r.a[++i]));else parts.push(shq(x));}
+ if(t==="pg_dump_wrapper")["-l","-r","--servers","--pgpassfile","--exclude-db","--maintenance-db","--table-sizes","--per-table-file-pattern","--min-free-mb","--alert-email","--alert-webhook","--alert-webhook-format","--alert-on","--alert-from","--config","--pg-bin"].forEach(x=>VAL.add(x));
+ const parts=[t==="pg_dump_wrapper"?((v.bin||"").trim()||"./pg_dump_wrapper.sh"):t];for(let i=0;i<r.a.length;i++){const x=r.a[i];if(VAL.has(x)&&i+1<r.a.length)parts.push(x+" "+shq(r.a[++i]));else parts.push(shq(x));}
  return{cmd:parts.join(ml?" \\\n    ":" ")+r.tail,w:r.w};}
 function update(){
  const v=st[tab];
@@ -929,6 +1064,7 @@ function update(){
   const ls=document.getElementById("list-pg_restore");if(ls)ls.classList.toggle("active",lm);}
  const ac=document.getElementById("advcount-"+tab);if(ac){const n=advSet(tab).length;ac.textContent=n?"("+n+" set)":"";}
  if(tab==="psql"){setDisabled("F",!v.A&&!v.F);}
+ if(tab==="pg_dump_wrapper"){const srv=!!(v.servers||"").trim();setDisabled("W",srv);setDisabled("file",srv||!!v.pertable);setDisabled("jobs",v.fmt!=="d");setDisabled("Z",v.fmt==="t");setDisabled("exdb",!v.all);setDisabled("mdb",!v.all);setDisabled("ptpat",!v.pertable);setDisabled("ahfmt",!(v.ahook||"").trim());}
  const r=render(tab,v);$("#cmd").textContent=r.cmd;
  $("#warns").innerHTML=r.w.map(([l,m])=>`<div class="warn ${l==="err"?"err":l==="info"?"info":""}">${l==="err"?"✖":l==="info"?"ℹ":"⚠"} ${esc(m)}</div>`).join("");
  $("#banner").innerHTML=(tab==="pg_restore"&&!v.l&&looksProd())?`<div class="banner" role="alert">⛔ Restore target looks like PRODUCTION (host/db contains "prod"): ${esc((conn.host||"")+" / "+(conn.db||""))}. Make sure this is intended${v.clean?" — --clean will DROP objects":""}.</div>`:"";
@@ -951,7 +1087,7 @@ $("#panel").addEventListener("change",e=>{const s=e.target;if(!s.classList||!s.c
 // remember when the user opens/closes Advanced by hand (auto-open from set options is not remembered)
 $("#panel").addEventListener("click",e=>{const s=e.target.closest&&e.target.closest("summary");if(!s)return;const d=s.parentElement;advUser[d.dataset.tool]=!d.open;});
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{tab=b.id.slice(4);renderPanel();}));
-$(".tabs").addEventListener("keydown",e=>{const ks=Object.keys(T);let i=ks.indexOf(tab);if(e.key==="ArrowRight")i=(i+1)%3;else if(e.key==="ArrowLeft")i=(i+2)%3;else return;tab=ks[i];renderPanel();document.getElementById("tab-"+tab).focus();});
+$(".tabs").addEventListener("keydown",e=>{const ks=Object.keys(T);let i=ks.indexOf(tab);if(e.key==="ArrowRight")i=(i+1)%ks.length;else if(e.key==="ArrowLeft")i=(i+ks.length-1)%ks.length;else return;tab=ks[i];renderPanel();document.getElementById("tab-"+tab).focus();});
 $("#multiline").addEventListener("change",update);
 $("#resetBtn").addEventListener("click",()=>{st[tab]=defaults(allFields(tab));advUser[tab]=false;renderPanel();toast("Reset "+tab+" options");});
 function copy(text){const ok=()=>toast("Copied ✓");if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(text).then(ok,()=>fallback(text));else fallback(text);
@@ -970,6 +1106,86 @@ $("#profDel").addEventListener("click",()=>{const i=$("#profSel").value;if(i==="
 $("#profExport").addEventListener("click",()=>{const b=new Blob([JSON.stringify(profiles,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="pg-commands-profiles.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
 $("#profImportLbl").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();$("#profImport").click();}});
 $("#profImport").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{const arr=JSON.parse(t);if(!Array.isArray(arr))throw 0;let n=0;arr.forEach(x=>{if(!x||!x.name)return;const p=clean(x);const i=profiles.findIndex(y=>y.name===p.name);if(i>=0)profiles[i]=p;else profiles.push(p);n++;});LS.set("pgc.profiles",profiles);renderProfiles();toast("Imported "+n+" profile(s)");}).catch(()=>toast("Not a valid profiles JSON file"));e.target.value="";});
+
+/* ---------- pg_dump_wrapper docs panel (v2.3.0 options) ---------- */
+const WRAP_OPTS=[
+ ["-h, --host HOST","Server host or socket dir (default: $PGHOST or localhost). Not allowed with --servers."],
+ ["-p, --port PORT","Server port (default: $PGPORT or 5432). Not allowed with --servers."],
+ ["-U, --user USER","Database user (default: $PGUSER or $USER). With --servers, an empty user field on a line uses this."],
+ ["-W, --password","Prompt once for the password at the start (needs a terminal). Used for every database and never stored or logged. Not allowed with --servers."],
+ ["--pgpassfile FILE","Use this .pgpass file (sets PGPASSFILE). Lines are host:port:*:user:password."],
+ ["--servers FILE","One server per line: host,port,user,databases (databases = all or a comma list). Each server writes to OUTPUT_DIR/<host>_<port>/. -h/-p, -W and -f are not allowed."],
+ ["-d, --dbname DB","Database(s) to dump; repeatable or comma-separated. Cannot be combined with --all."],
+ ["--all","Dump every non-template database that allows connections."],
+ ["--exclude-db PATTERN","With --all: skip databases matching a shell glob. Repeatable."],
+ ["--maintenance-db DB","Database used to list databases for --all (default: postgres)."],
+ ["--table-sizes N|all","Before each dump, list the N largest tables (size incl. indexes and TOAST, estimated rows). 0 = off, all = every table. Default: 10."],
+ ["--stop-on-error","Stop at the first failed database, table or server (default: continue)."],
+ ["--per-table","Dump each table selected by -t and/or -n into its own file. Needs at least one -t or -n. Cannot be combined with -f."],
+ ["--per-table-file-pattern P","File name for each table; tokens {db} {schema} {table} {date} (all required) and {ext}. Default: {db}_{schema}_{table}_{date}.{ext}."],
+ ["-F, --format FMT","plain|custom|directory|tar (p|c|d|t). Default: custom."],
+ ["-Z, --compress LEVEL","0-9, or METHOD[:LEVEL] e.g. gzip:6, zstd:3, lz4 (PG16+ pg_dump). Not allowed for tar."],
+ ["-j, --jobs N","Parallel dump jobs (directory format only when greater than 1)."],
+ ["-s, --schema-only","Dump only object definitions, no data. Cannot be combined with --data-only."],
+ ["-a, --data-only","Dump only data, no definitions. Cannot be combined with --schema-only or --clean."],
+ ["-n, --schema PATTERN","Include only matching schema(s). Repeatable or comma-separated."],
+ ["-N, --exclude-schema PATTERN","Exclude matching schema(s). Repeatable."],
+ ["-t, --table PATTERN","Include only matching table(s). Repeatable. Use schema.table."],
+ ["-T, --exclude-table PATTERN","Exclude matching table(s). Repeatable."],
+ ["--exclude-table-data PATTERN","Keep the table definition, skip its rows. Repeatable."],
+ ["-O, --no-owner","Do not output ownership (ALTER … OWNER) commands."],
+ ["-x, --no-privileges","Do not output GRANT/REVOKE commands."],
+ ["-c, --clean","Emit DROP before CREATE (plain format). Requires --if-exists if you want DROP … IF EXISTS."],
+ ["--if-exists","Use DROP … IF EXISTS (requires --clean)."],
+ ["-C, --create","Emit CREATE DATABASE + \\connect (plain format)."],
+ ["-o, --output-dir DIR","Directory for backups (default: .). With --servers, each server writes to DIR/<host>_<port>/."],
+ ["-f, --file NAME","Override the generated file name (single database only). Bare name, no path. Not allowed with --servers or --per-table."],
+ ["-l, --log-file FILE","Log file (default: OUTPUT_DIR/pg_dump_wrapper.log)."],
+ ["-r, --retention-days N","After success, delete that database's DB_YYYYmmdd_HHMMSS.* backups older than N days. N must be >= 1."],
+ ["--min-free-mb N","Warn if free space in OUTPUT_DIR is below N MB (default: 1024)."],
+ ["--alert-email ADDR","Mail the run report (mail/mailx/sendmail). Repeatable or comma-separated."],
+ ["--alert-webhook URL","POST the run report as JSON via curl. Repeatable. http(s) only."],
+ ["--alert-webhook-format F","slack (default, {\"text\": ...}; Slack/Teams/Google Chat) or json (structured)."],
+ ["--alert-on WHEN","failure (default) or always."],
+ ["--alert-from ADDR","From address for e-mail alerts (sendmail / mailx -r)."],
+ ["--alert-test","Send a test alert to the configured targets and exit."],
+ ["--config FILE","Load key=value settings (CLI arguments override them). Passwords are not allowed in the file."],
+ ["--verify","Verify the dump afterwards (pg_restore --list / plain-file footer)."],
+ ["--checksum","Write a .sha256 file next to the dump."],
+ ["--dry-run","Print the pg_dump command(s) and exit without dumping. Never sends alerts."],
+ ["--skip-precheck","Skip connectivity and disk-space checks."],
+ ["--pg-bin DIR","Directory containing pg_dump, pg_restore, psql and pg_isready."],
+ ["-v, --verbose","Debug logging + pass --verbose to pg_dump."],
+ ["--help","Show help. Note: -h means host, not help."],
+ ["--version","Show wrapper version."],
+ ["-- ARGS","Everything after -- is passed to pg_dump verbatim."]
+];
+const WRAP_EX=[
+ {title:"Single server",cmd:String.raw`./pg_dump_wrapper.sh -h db1.example.internal -p 5432 -U backup_user -d salesdb -o /backups -r 14 --verify --checksum --alert-email dba@example.com`,p:"One host, one database, custom format (the default), keep 14 days of dumps, verify, checksum and e-mail on failure.",w:"The password comes from ~/.pgpass or PGPASSWORD, not from this command.",load:{outdir:"/backups",ret:"14",verify:true,checksum:true,aemail:"dba@example.com"},conn:{host:"db1.example.internal",port:"5432",user:"backup_user",db:"salesdb"}},
+ {title:"Many servers (--servers)",cmd:String.raw`./pg_dump_wrapper.sh --servers /etc/pg_backup/servers.txt -U backup_user --pgpassfile /etc/pg_backup/.pgpass -o /backups -r 14 --verify --checksum --alert-email dba@example.com`,p:"Servers file lines are host,port,user,databases. Each server writes to /backups/<host>_<port>/. One summary, one log, one alert.",w:"-h/-p, -W and -f are rejected. Put one .pgpass line per server.",load:{servers:"/etc/pg_backup/servers.txt",pgpassfile:"/etc/pg_backup/.pgpass",outdir:"/backups",ret:"14",verify:true,checksum:true,aemail:"dba@example.com"},conn:{host:"",port:"5432",user:"backup_user",db:""}},
+ {title:"One file per table (--per-table)",cmd:String.raw`./pg_dump_wrapper.sh -h db1.example.internal -U backup_user -d salesdb -o /backups --per-table -t sales.orders,sales.customers --verify --checksum`,p:"Each selected table goes into its own file. You can also use -n SCHEMA to take every table in a schema.",w:"Needs at least one -t or -n. Cannot be combined with -f; use --per-table-file-pattern to change the name.",load:{outdir:"/backups",pertable:true,tt:"sales.orders,sales.customers",verify:true,checksum:true},conn:{host:"db1.example.internal",port:"5432",user:"backup_user",db:"salesdb"}},
+ {title:".pgpass (different passwords per server)",cmd:String.raw`# ~/.pgpass  (chmod 600)
+db1.example.internal:5432:*:backup_user:change-me-s1
+db2.example.internal:5433:*:backup_user:change-me-s2
+
+# /etc/pg_backup/servers.txt
+# host,port,user,databases
+db1.example.internal,5432,backup_user,all
+db2.example.internal,5433,backup_user,salesdb,hrdb`,p:"One .pgpass line per host:port, so each server can have its own password. The wrapper never takes a password as an argument.",w:"-W cannot be used with --servers. On Windows the file is %APPDATA%\\postgresql\\pgpass.conf."},
+ {title:"E-mail and webhook alerts",cmd:String.raw`./pg_dump_wrapper.sh -h db1.example.internal -U backup_user --all --exclude-db 'postgres,test_*' -o /backups --alert-email dba@example.com --alert-from pg-backups@example.com --alert-webhook https://hooks.example.com/services/T000/B000/XXXX --alert-on failure`,p:"One combined alert per run. Default --alert-on is failure (omitted here). Use --alert-test to send a test and exit.",w:"--dry-run never sends alerts. Keep webhook URLs out of logs and chmod 600 any config file that holds one.",load:{all:true,exdb:"postgres,test_*",outdir:"/backups",aemail:"dba@example.com",afrom:"pg-backups@example.com",ahook:"https://hooks.example.com/services/T000/B000/XXXX"},conn:{host:"db1.example.internal",port:"5432",user:"backup_user",db:""}}
+];
+function wrapDocsFilter(){const q=($("#wd-q")&&$("#wd-q").value||"").trim().toLowerCase();const rows=WRAP_OPTS.filter(([o,p])=>!q||(o+" "+p).toLowerCase().includes(q));
+ const tb=document.querySelector("#wd-opts tbody");if(!tb)return;
+ tb.innerHTML=rows.map(([o,p])=>`<tr><th><code>${esc(o)}</code></th><td>${esc(p)}</td></tr>`).join("")||`<tr><td colspan="2">No options match.</td></tr>`;
+ const c=$("#wd-count");if(c)c.textContent=q?rows.length+" of "+WRAP_OPTS.length+" options":WRAP_OPTS.length+" options";}
+function wrapDocsInit(){if(!$("#wd-ex")||$("#wd-ex").dataset.ready)return;
+ wrapDocsFilter();$("#wd-q").addEventListener("input",wrapDocsFilter);
+ $("#wd-ex").innerHTML=WRAP_EX.map((r,i)=>`<article class="card"><h4>${esc(r.title)}</h4><p class="purpose">${esc(r.p)}</p><pre>${esc(r.cmd)}</pre><p class="watch">${esc(r.w)}</p><div class="acts"><button class="small" type="button" data-wcopy="${i}" aria-label="Copy: ${esc(r.title)}">Copy</button>${r.load?`<button class="small primary" type="button" data-wload="${i}" aria-label="Load into builder: ${esc(r.title)}">Load into builder</button>`:""}</div></article>`).join("");
+ $("#wd-ex").dataset.ready="1";
+ $("#wd-ex").addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("button");if(!t)return;
+  if(t.dataset.wcopy!==undefined){copy(WRAP_EX[+t.dataset.wcopy].cmd);return;}
+  if(t.dataset.wload!==undefined){const ex=WRAP_EX[+t.dataset.wload];tab="pg_dump_wrapper";st[tab]=Object.assign(defaults(allFields(tab)),ex.load||{});
+   if(ex.conn){Object.assign(conn,ex.conn);renderConn();}renderPanel();$("#builder").scrollIntoView({behavior:"smooth"});toast("Loaded into pg_dump_wrapper — review the command before running it");}});}
 
 /* ---------- recipes ---------- */
 const R=[
@@ -2837,6 +3053,7 @@ const G=[["backup","Backup & Restore"],["psql","psql & Recipes"],["security","Se
 // route: [group, id, label, sections to show, extra, keywords]
 const R=[
  ["backup","pg_dump","pg_dump builder",["profiles","builder"],{tab:"pg_dump"},"dump backup export"],
+ ["backup","pg_dump_wrapper","pg_dump_wrapper builder",["profiles","builder"],{tab:"pg_dump_wrapper"},"wrapper backup servers per-table retention alert pgpass"],
  ["backup","pg_restore","pg_restore builder",["profiles","builder"],{tab:"pg_restore"},"restore import"],
  ["backup","profiles","Connection profiles",["profiles"],{},"connection host saved export import json"],
  ["psql","psql","psql builder",["profiles","builder"],{tab:"psql"},"psql copy csv script"],
