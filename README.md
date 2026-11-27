@@ -3,7 +3,7 @@
 **Live:** https://manideepgrandhi.github.io/pg-commands/
 
 A daily-driver page for PostgreSQL client commands: **pg_dump**, **pg_dump_wrapper**, **pg_restore** and **psql** (PostgreSQL 13–17).
-It's one self-contained `index.html` with no build step, no CDNs and no server, so it works offline. Everything stays in your browser.
+The site is self-contained HTML (`index.html` and `rds-backup-simulator.html`) with no build step, no CDNs and no server, so it works offline. Everything stays in your browser.
 
 ![Desktop](screenshots/desktop.png)
 
@@ -21,6 +21,7 @@ The page is split into groups with a sidebar (a scrolling sub-tab bar on mobile)
 | Security | `#security/role-builder`, `#security/role-model`, `#security/default-privileges`, `#security/privilege-audit`, `#security/ownership-fixer`, `#security/drop-role`, `#security/login-user`, `#security/checklist` |
 | Monitoring | `#monitoring/sessions-locks` |
 | Practice | `#practice/sample-data` |
+| AWS RDS tools | `#aws/backup-simulator` (opens a card that links to `rds-backup-simulator.html`) |
 
 Old anchors (`#builder`, `#recipes`, `#security`, `#admin`, `#sample`, `#profiles`) still work and redirect.
 
@@ -30,6 +31,7 @@ Old anchors (`#builder`, `#recipes`, `#security`, `#admin`, `#sample`, `#profile
   - **pg_restore:** up front are the dump file, What to restore, Verbose, `--clean`, `--if-exists`, `--no-owner`, `--single-transaction` and Log to file. A small *List contents* section holds `-l`, *Save list to* and `-L`; while `-l` is ticked the other options are greyed out because they are ignored. Advanced holds the schema/table filters, parallel jobs, `--create`, `--no-privileges` and `--exit-on-error`.
   - Nothing was removed in v2.9: every option and every command the builder could produce before is still there, and the generated commands are byte-for-byte the same.
   - **pg_dump_wrapper (v2.10):** sits next to the pg_dump builder (`#backup/pg_dump_wrapper`). Up front are the script path, `--servers`, format, output directory, `--all`, what to dump, table sizes, retention, `-W`, `--per-table`, `--verify`, `--checksum`, `--dry-run`, verbose and `--no-owner`, plus an Alerts group (e-mail, webhook, format, when, from, `--alert-test`). Advanced holds schema/table filters, `--exclude-db`, `--maintenance-db`, jobs, compression, `-f`, the per-table file pattern, the log file, `--min-free-mb`, `--pgpassfile`, `--config`, `--pg-bin`, `--stop-on-error`, `--skip-precheck`, `--no-privileges`, `--clean`, `--if-exists`, `--create` and extra pg_dump args after `--`. The builder flags combinations the script rejects (for example `-W` or `-f` with `--servers`, `--per-table` without `-t`/`-n`, `-d` with `--all`). A docs panel under the builder has install steps from the [v2.3.0 zip](https://github.com/manideepgrandhi/pg-dump-wrapper/releases/tag/v2.3.0), a searchable options table, and examples (single server, `--servers`, `--per-table`, `.pgpass` lines, alerts) with *Load into builder*. The existing pg_dump, pg_restore and psql commands are unchanged.
+- **RDS backup compliance simulator (v2.11).** A new **AWS RDS tools** group (`#aws/backup-simulator`) has a card that opens `rds-backup-simulator.html`. That page is a copy of the [rds-backup-compliance](https://github.com/manideepgrandhi/rds-backup-compliance) v1.8.0 simulator (schedule or counts mode) with the same shared header, footer and light/dark/auto theme. No AWS calls; it works offline. The simulator script itself is unchanged; re-copy it if the upstream simulator PR changes.
 - **Verbose log file (pg_dump, pg_restore).** One row with a **Log to file** checkbox, a file name box and *Also show on screen (tee)*. Ticking *Log to file* also ticks Verbose, and unticking Verbose turns it off again. The name is pre-filled with `{db}_{date}_dump.log` (or `_restore.log`). The command then ends with `2> file`. Tick *Also show on screen* to get `2>&1 | tee file` instead. When the dump or SQL itself goes to stdout (pg_dump without `-f`, pg_restore without `-d`), tee is turned off with a warning so the log can't end up inside the dump. Verbose alone gives just `-v`, and an empty file name does the same. State saved by v2.8 (Verbose on) still produces the same command.
 - **Output file presets (pg_dump).** Three chips fill `{db}_{date}`, `{db}_{date}_{time}` and `{host}_{db}_{date}`. A **More presets…** dropdown next to them has `{db}_{schema}_{date}`, `{db}_{table}_{date}`, `{db}_schema_only_{date}` and `{db}_data_only_{date}`. Each preset adds the ending that matches the format (`.dump`, `_dir`, `.sql`, `.tar`). The schema and table presets use the first `-n` / `-t` entry (`sales.orders` becomes `sales_orders`) and stay greyed out until one is set under Advanced options. The tokens `{db}`, `{date}` (YYYYMMDD), `{time}` (HHMM), `{host}`, `{schema}` and `{table}` also work in typed names, and values are made filename-safe. Date and time use your computer's clock.
 - **Validation as you type.** It warns about `-j` without `-Fd`, `--single-transaction` with `-j`, `--clean` without `--if-exists`, `--if-exists` without `--clean`, compression with `-Ft`, a plain `.sql` file given to pg_restore, schema-qualified `pg_restore -t`, and scripts run without `ON_ERROR_STOP`. A **red banner** appears when the restore target host or database name contains `prod`.
@@ -99,6 +101,7 @@ Tested on PostgreSQL 13, 16 and 17 as a CREATEROLE admin and as superuser.
 ![Role builder v2.5](screenshots/desktop-role-builder-v25.png)
 
 ## Changelog
+- **2.11** RDS backup compliance simulator on its own page (`rds-backup-simulator.html`), linked from a new **AWS RDS tools** sidebar group and from the site search when you type “backup simulator”. Shared header, footer and theme. Existing builders are unchanged.
 - **2.10** pg_dump_wrapper command builder next to pg_dump (`#backup/pg_dump_wrapper`), with a docs panel (install from the v2.3.0 zip, searchable options, examples). Existing pg_dump / pg_restore / psql commands are unchanged.
 - **2.7** Light and dark themes (light / dark / auto-follow-system), stored in the shared `mg-theme` key used by all of Manideep's sites. Slim shared site bar and footer (inlined copy of `manideepgrandhi.github.io/assets/mg-shared.*`, synced by `scripts/sync-mg-shared.py` in that repo). No data, storage-key or feature changes.
 - **2.6** Reorganized into grouped navigation (sidebar + group tabs + jump search), hash deep links, links to Manideep's other projects. No features removed; saved profiles and settings are kept.
