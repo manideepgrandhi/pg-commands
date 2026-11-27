@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en" data-mg-site="pg-commands" data-mg-here="/pg-commands/">
+<html lang="en" data-mg-site="pg-commands" data-mg-here="/pg-commands/" data-mg-local="Builders|index.html,Simulator|rds-backup-simulator.html">
 <head>
 <meta charset="utf-8">
-<meta name="pgc-version" content="2.10">
+<meta name="pgc-version" content="2.11">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>pg-commands · pg_dump, pg_restore, pg_dump_wrapper & psql builder</title>
 <meta name="description" content="Interactive command builder and recipes for pg_dump, pg_restore, pg_dump_wrapper and psql. Runs fully in your browser.">
@@ -145,6 +145,9 @@ main section>h2:first-child{margin-top:14px}
 #wrapperDocs h3{margin:18px 0 8px}
 #wrapperDocs pre.cmd{padding:12px 14px;border:1px solid var(--line)}
 [data-hide]{display:none!important}
+.aws-card h3{margin-top:0;text-transform:none;letter-spacing:0;font:700 18px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--fg)}
+.aws-card .btn.primary{display:inline-block;background:#238636;border-color:#2ea043;color:#fff;text-decoration:none}
+.aws-card .btn.primary:hover{border-color:#2ea043}
 @media (max-width:860px){header{position:static}.sitelink{display:none}.layout{display:block}#side{position:sticky;top:0;z-index:15;background:var(--bg);max-height:none;padding:8px 0;display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line)}#side h4{display:none}#side a{flex:0 0 auto;border-left:0;border:1px solid var(--line);font-size:13px;padding:5px 10px}#side a:not([data-g-on]){display:none}.gtabs{margin-left:0;width:100%;overflow-x:auto;flex-wrap:nowrap}.jump{flex:1 1 100%}.tagline{display:none}.out{position:static}}
 </style>
 <!--mg:head inline--><style id="mg-shared-css">
@@ -506,6 +509,11 @@ window.addEventListener("load",function(){(window.requestIdleCallback||function(
 window.MGSearch={open:open,close:close,load:load,catalog:CATALOG,siteScore:siteScore,catalogHits:catalogHits,search:function(q){return load().then(function(X){var r=search(X,q);return r.r.map(function(x){var e=X.e[x.i],pg=X.pages[e[0]];return{site:X.sites[pg[0]][0],page:pg[2],heading:e[2],url:href(x),score:x.s}})})},slug:slug};
 })();
 </script><!--/mg:body-->
+<script>
+/* Page-local catalog entry. Kept outside the mg markers so sync-mg-shared.py will not wipe it.
+   The shared CATALOG lives in manideepgrandhi.github.io/assets/mg-search.js and is inlined. */
+(function(){var c=window.MGSearch&&window.MGSearch.catalog;if(!c)return;var e=["RDS backup simulator","/pg-commands/rds-backup-simulator.html"];for(var i=0;i<c.length;i++)if(c[i][1]===e[1])return;c.push(e)})();
+</script>
 <header id="hdr"><div class="wrap">
   <a class="logo" href="#backup/pg_dump">pg<span>-commands</span></a>
   <span class="tagline">PostgreSQL 13–17 · builders, recipes &amp; DBA tools</span>
@@ -685,10 +693,20 @@ cd pg-dump-wrapper
 </div>
 <div class="cards" id="dcards"></div>
 </section>
+
+<section id="aws" aria-labelledby="h-aws">
+<h2 id="h-aws">aws rds tools</h2>
+<div class="panel aws-card">
+  <h3>RDS backup compliance simulator</h3>
+  <p>See how <code>rds_backup_compliance_report.sh</code> v1.8.0 decides COMPLIANT or NON-COMPLIANT. You can try both check modes: <code>schedule</code> (a point on each scheduled day) and <code>counts</code> (at least N points in a window). No AWS calls, works offline.</p>
+  <p><a class="btn primary" href="rds-backup-simulator.html">Open the simulator</a></p>
+  <p class="tip" style="margin-bottom:0">Copied from the <a href="https://github.com/manideepgrandhi/rds-backup-compliance">rds-backup-compliance</a> simulator. The real report is the source of truth.</p>
+</div>
+</section>
 </main></div>
 <footer><div class="wrap">
   <strong>Also see:</strong> <a href="#backup/pg_dump_wrapper">pg_dump_wrapper builder</a> on this page, and the <a href="https://github.com/manideepgrandhi/pg-dump-wrapper" rel="noopener">pg-dump-wrapper</a> repo — Manideep's <code>pg_dump</code>/<code>psql</code> wrapper scripts for scheduled, logged backups and runs.<br>
-  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.10. Always review a command before running it, especially against production.
+  Everything runs in your browser; nothing is sent anywhere. pg-commands v2.11. Always review a command before running it, especially against production.
 </div></footer>
 <div class="toast" id="toast" role="status"></div>
 
@@ -3049,7 +3067,7 @@ atRender();
 
 /* ---- v2.6 navigation: groups, sidebar, hash routes (#group/tool), jump search ---- */
 (function(){
-const G=[["backup","Backup & Restore"],["psql","psql & Recipes"],["security","Security"],["monitoring","Monitoring"],["practice","Practice"]];
+const G=[["backup","Backup & Restore"],["psql","psql & Recipes"],["security","Security"],["monitoring","Monitoring"],["practice","Practice"],["aws","AWS RDS tools"]];
 // route: [group, id, label, sections to show, extra, keywords]
 const R=[
  ["backup","pg_dump","pg_dump builder",["profiles","builder"],{tab:"pg_dump"},"dump backup export"],
@@ -3067,10 +3085,11 @@ const R=[
  ["security","login-user","Login user setup",["admin"],{at:"login"},"create user password valid until"],
  ["security","checklist","Security checklist",["security"],{sub:"sec-checklist"},"ssl rls md5 scram pgaudit logging"],
  ["monitoring","sessions-locks","Sessions & locks",["admin"],{at:"sessions"},"blocking locks kill terminate cancel idle long running"],
- ["practice","sample-data","Sample data",["sample"],{},"demo practice schema queries"]];
+ ["practice","sample-data","Sample data",["sample"],{},"demo practice schema queries"],
+ ["aws","backup-simulator","RDS backup simulator",["aws"],{},"aws rds backup compliance simulator counts schedule weekly monthly"]];
 const OLD={builder:"backup/pg_dump",recipes:"psql/recipes",security:"security/role-builder",admin:"security/default-privileges",sample:"practice/sample-data",profiles:"backup/profiles",top:"backup/pg_dump",rolebuilder:"security/role-builder",rolemodel:"security/role-model"};
 const key=r=>r[0]+"/"+r[1];const first=g=>R.find(r=>r[0]===g);
-const SECS=["profiles","builder","recipes","security","admin","sample"],SUBS=["rolebuilder","rolemodel","sec-checklist"];
+const SECS=["profiles","builder","recipes","security","admin","sample","aws"],SUBS=["rolebuilder","rolemodel","sec-checklist"];
 $("#gtabs").innerHTML=G.map(([g,l])=>`<a href="#${key(first(g))}" data-g="${g}">${esc(l)}</a>`).join("");
 $("#side").innerHTML=G.map(([g,l])=>`<h4>${esc(l)}</h4>`+R.filter(r=>r[0]===g).map(r=>`<a href="#${key(r)}" data-r="${key(r)}" data-gr="${g}">${esc(r[2])}</a>`).join("")).join("");
 let cur=null;
